@@ -57,6 +57,27 @@ export function CardHeader({ title, right, className, icon }: { title: React.Rea
     </div>
   )
 }
+/** A number that counts from its previous value to the new one in 300ms. No motion on first paint or under reduced motion. */
+export function AnimatedNumber({ value, format }: { value: number; format: (n: number) => string }) {
+  const [shown, setShown] = React.useState(value)
+  const from = React.useRef(value)
+  React.useEffect(() => {
+    const start = from.current
+    from.current = value
+    if (start === value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(value); return }
+    let raf = 0
+    const t0 = performance.now()
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 300)
+      setShown(start + (value - start) * (1 - (1 - k) ** 3))
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [value])
+  return <>{format(shown)}</>
+}
+
 /** Metric tray: grey frame, 4px padding, white cards inside.
  *  `cols={4}` is 2x2 on a phone; `cols={3}` (and 2) collapses to compact label/value rows on a phone. */
 export function MetricTray({ children, cols = 3, className }: { children: React.ReactNode; cols?: 2 | 3 | 4; className?: string }) {
@@ -268,20 +289,29 @@ export function MenuItem({ selected, className, children, ...rest }: React.Butto
 }
 
 /* ---------- Dialog / Sheet ---------- */
-/** Centered dialog (radius 16, 150ms scale-in); a bottom sheet with a grab handle below 640px. */
-export function Dialog({ open, onClose, title, description, children, width = 480 }: { open: boolean; onClose: () => void; title?: React.ReactNode; description?: React.ReactNode; children: React.ReactNode; width?: number }) {
+/** Centered dialog (radius 16, 150ms scale-in); a bottom sheet with a grab handle below 640px.
+ *  `keepMounted` keeps the children in the page while closed, so a form opens instantly and keeps its state. */
+export function Dialog({ open, onClose, title, description, children, width = 480, keepMounted }: { open: boolean; onClose: () => void; title?: React.ReactNode; description?: React.ReactNode; children: React.ReactNode; width?: number; keepMounted?: boolean }) {
+  const root = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
+    // The phone keyboard shrinks the visual viewport, not the layout one: pin the overlay to what is visible.
+    const vv = window.visualViewport, el = root.current
+    const fit = () => { if (vv && el) { el.style.top = `${vv.offsetTop}px`; el.style.height = `${vv.height}px` } }
+    fit(); vv?.addEventListener('resize', fit); vv?.addEventListener('scroll', fit)
+    return () => {
+      window.removeEventListener('keydown', onKey); document.body.style.overflow = ''
+      vv?.removeEventListener('resize', fit); vv?.removeEventListener('scroll', fit)
+    }
   }, [open, onClose])
-  if (!open) return null
+  if (!open && !keepMounted) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6" role="dialog" aria-modal="true">
+    <div ref={root} hidden={!open} className="fixed inset-x-0 top-0 h-dvh z-50 flex items-end sm:items-center justify-center sm:p-6" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 animate-[fadeIn_.15s]" onClick={onClose} />
-      <div className="relative w-full max-h-[92dvh] overflow-y-auto overscroll-contain bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] pb-[env(safe-area-inset-bottom)] animate-[sheetUp_.18s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
+      <div className="relative w-full max-h-[92%] sm:max-h-full overflow-y-auto overscroll-contain bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] pb-[env(safe-area-inset-bottom)] animate-[sheetUp_.18s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
         <div className="sm:hidden mx-auto mt-2 h-1 w-9 rounded-full bg-muted-2" aria-hidden />
         {(title || description) && (
           <div className="px-5 sm:px-6 pt-4 sm:pt-6">
