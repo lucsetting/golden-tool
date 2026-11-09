@@ -4,6 +4,16 @@ Monthly spending control web app. Sold on Digistore24 as the front-end product; 
 
 Stack: Vite, React, TypeScript, Tailwind v4, zustand (persisted to the browser), Recharts, lucide-react. No backend. Data lives in the buyer's browser; they can export/import a JSON backup from Settings. Installable as a PWA.
 
+## Live app and deploy
+
+**URL:** https://lucsetting.github.io/golden-tool/ (GitHub Pages, repo `lucsetting/golden-tool`, public).
+
+Deploy is automatic: every push to `main` runs `.github/workflows/pages.yml`, which builds with
+`VITE_BASE=/golden-tool/`, the Supabase URL and publishable key, and `VITE_LICENSE_SECRET` from the repo secret
+`LICENSE_SECRET`, then publishes `dist/`. To generate activation codes that match the live build run
+`LICENSE_SECRET=<same value> node scripts/gen-keys.mjs <kind> <count>`. Moving to a custom domain later means
+setting `VITE_BASE=/` (or just dropping it) in the workflow and pointing the domain at Pages.
+
 ## Run
 
 ```bash
