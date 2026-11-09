@@ -84,8 +84,8 @@ function GoalRow({ g, currency, onEdit }: { g: Goal; currency: string; onEdit: (
           <Button size="sm" className="max-sm:px-3" onClick={() => setAdding(true)}><PlusIcon /><span>Add contribution</span></Button>
         )}
         <span className="flex-1 xl:hidden" />
-        <IconButton size="sm" label="Edit goal" onClick={onEdit}><PencilIcon /></IconButton>
-        <IconButton size="sm" label="Delete goal" onClick={() => deleteWithUndo('goals', g.id, 'Goal deleted')}><TrashIcon /></IconButton>
+        <IconButton size="sm" label={`Edit ${g.name}`} onClick={onEdit}><PencilIcon /></IconButton>
+        <IconButton size="sm" label={`Delete ${g.name}`} onClick={() => deleteWithUndo('goals', g.id, 'Goal deleted')}><TrashIcon /></IconButton>
       </div>
     </div>
   )

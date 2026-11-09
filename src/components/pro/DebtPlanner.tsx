@@ -104,8 +104,8 @@ export default function DebtPlanner() {
                 <div className="flex shrink-0 max-xl:flex-col max-xl:items-end xl:w-16 xl:justify-end">
                   <span className="xl:hidden">{f(d.balance)}</span>
                   <div className="flex max-sm:-mr-2">
-                    <IconButton size="sm" label="Edit debt" onClick={() => setSheet({ debt: d })}><PencilIcon /></IconButton>
-                    <IconButton size="sm" label="Delete debt" onClick={() => deleteWithUndo('debts', d.id, 'Debt deleted')}><TrashIcon /></IconButton>
+                    <IconButton size="sm" label={`Edit ${d.name}`} onClick={() => setSheet({ debt: d })}><PencilIcon /></IconButton>
+                    <IconButton size="sm" label={`Delete ${d.name}`} onClick={() => deleteWithUndo('debts', d.id, 'Debt deleted')}><TrashIcon /></IconButton>
                   </div>
                 </div>
               </TableRow>
