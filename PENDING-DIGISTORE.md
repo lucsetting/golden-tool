@@ -35,6 +35,8 @@ and an unknown `product_id` → OK but nothing granted. Also press "Send test IP
 
 ## Upsell pages (site) — wire when the products exist
 Pages: `/upsell/` (Debt Payoff Planner $47) → `/upsell2/` (Savings Goals $37) → `/upsell3/` (Reports & Budgets $27) → `/thank-you/`.
+Thank-you page per upsell product (enter these as each add-on product's thank-you URL in the platform; each one shows "added to your order" and a Continue button to the next step):
+`/upsell/thank-you/` → continues to `/upsell2/` · `/upsell2/thank-you/` → `/upsell3/` · `/upsell3/thank-you/` → `/thank-you/`.
 Each page has a script with `ACCEPT` / `DECLINE` patterns left EMPTY and a session id read from `?upsell_session=` or `?session=`.
 When the platform is connected: set ACCEPT to its one-click "yes" URL pattern and DECLINE to the "no" pattern (both with `{sid}`), and make the
 page read the platform's own session parameter name. Register each page as the upsell page of the previous product. The owner's rule (2026-11-09):
