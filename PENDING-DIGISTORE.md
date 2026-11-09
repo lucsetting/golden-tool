@@ -32,3 +32,10 @@ node supabase/functions/digistore-ipn/sign-test.mjs '<passphrase>' https://rlnfp
 Run the printed curl → expect `OK`. Then: reload the app signed in as that email → Debt Payoff Planner unlocked
 with no code. Then send `event=on_refund` for the same order → locked again. Then a wrong `sha_sign` → 403,
 and an unknown `product_id` → OK but nothing granted. Also press "Send test IPN" in Digistore24 → `OK`.
+
+## Upsell pages (site) — wire when the products exist
+Pages: `/upsell/` (Debt Payoff Planner $47) → `/upsell2/` (Savings Goals $37) → `/upsell3/` (Reports & Budgets $27) → `/thank-you/`.
+Each page has a script with `ACCEPT` / `DECLINE` patterns left EMPTY and a session id read from `?upsell_session=` or `?session=`.
+When the platform is connected: set ACCEPT to its one-click "yes" URL pattern and DECLINE to the "no" pattern (both with `{sid}`), and make the
+page read the platform's own session parameter name. Register each page as the upsell page of the previous product. The owner's rule (2026-11-09):
+no visible mention of the payment platform anywhere on the site until the product is live there; CTAs point to `#checkout` until then.
