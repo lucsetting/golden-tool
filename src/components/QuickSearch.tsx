@@ -7,7 +7,7 @@ import { CategoryBadge, cx } from './ui'
 
 type Item = { id: string; kind: 'page' | 'expense' | 'action'; label: string; sub?: string; run: () => void; badge?: { icon: string; color: string } }
 
-const PAGE_GROUP: Record<string, string> = { dashboard: 'Dashboard', debts: 'Debt Payoff Planner', goals: 'Savings Goals', reports: 'Reports & Budgets', settings: 'Settings' }
+const PAGE_GROUP: Record<string, string> = { dashboard: 'Dashboard', debts: 'Golden Freedom', goals: 'Golden Goals', reports: 'Golden Vision', settings: 'Settings' }
 
 /** Nevian-style quick search: a small button in the top bar, ⌘K opens a palette over pages, expenses and actions. */
 export function QuickSearchButton({ className }: { className?: string }) {

@@ -12,7 +12,7 @@ It is NOT live yet: JWT verification is still on and no secrets are set. Nothing
      Test value used in the plan: `gt-ipn-0efabe8511ae1e3aa426ba74`
    - `DIGISTORE_PRODUCT_MAP` = JSON of Digistore24 product id → offer, e.g.
      (see mapping below; the front-end product is not in the map)
-     Mapping: Debt Payoff Planner → `debts`, Savings Goals → `goals`, Reports & Budgets → `reports`,
+     Mapping: Golden Freedom → `debts`, Golden Goals → `goals`, Golden Vision → `reports`,
      Lifetime Access (order bump) → `lifetime`, Bundle/downsell (all add-ons) → `all`.
      The front-end product (Golden Tool itself) is NOT in the map: it needs no entitlement.
      Test map used in the plan: `{"1001":"debts","1002":"goals","1003":"reports","1004":"lifetime","1005":"all"}`
@@ -29,12 +29,12 @@ From the project folder:
 node supabase/functions/digistore-ipn/sign-test.mjs '<passphrase>' https://rlnfpgbtlrnitbulvwkh.supabase.co/functions/v1/digistore-ipn \
   event=on_payment email=lucazscales@outlook.com product_id=<debts id> order_id=TEST-1 api_mode=test
 ```
-Run the printed curl → expect `OK`. Then: reload the app signed in as that email → Debt Payoff Planner unlocked
+Run the printed curl → expect `OK`. Then: reload the app signed in as that email → Golden Freedom unlocked
 with no code. Then send `event=on_refund` for the same order → locked again. Then a wrong `sha_sign` → 403,
 and an unknown `product_id` → OK but nothing granted. Also press "Send test IPN" in Digistore24 → `OK`.
 
 ## Upsell pages (site) — wire when the products exist
-Pages: `/upsell/` (Debt Payoff Planner $47) → `/upsell2/` (Savings Goals $37) → `/upsell3/` (Reports & Budgets $27) → `/thank-you/`.
+Pages: `/upsell/` (Golden Freedom $47) → `/upsell2/` (Golden Goals $37) → `/upsell3/` (Golden Vision $27) → `/thank-you/`.
 Thank-you page per upsell product (enter these as each add-on product's thank-you URL in the platform; each one shows "added to your order" and a Continue button to the next step):
 `/upsell/thank-you/` → continues to `/upsell2/` · `/upsell2/thank-you/` → `/upsell3/` · `/upsell3/thank-you/` → `/thank-you/`.
 Each page has a script with `ACCEPT` / `DECLINE` patterns left EMPTY and a session id read from `?upsell_session=` or `?session=`.

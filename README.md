@@ -33,9 +33,9 @@ npx tsx scripts/check.ts   # self-check for money math and license codes
 |---|---|---|
 | Front-end: Golden Tool | none | Full tracking. Included access: 365 days from first use, then read-only (view + export only). |
 | Order bump: Lifetime Access | `LIFE` | Removes the 365-day limit. |
-| Upsell 1: Debt Payoff Planner | `DEBT` | Unlocks the Debts section (planner + schedule). |
-| Upsell 2: Savings Goals | `GOAL` | Unlocks the Goals section (goals + emergency fund). |
-| Upsell 3: Reports & Budgets | `RPRT` | Unlocks the Reports section (budgets + yearly + export). |
+| Upsell 1: Golden Freedom | `DEBT` | Unlocks the Debts section (planner + schedule). |
+| Upsell 2: Golden Goals | `GOAL` | Unlocks the Goals section (goals + emergency fund). |
+| Upsell 3: Golden Vision | `RPRT` | Unlocks the Reports section (budgets + yearly + export). |
 | Bundle / downsell | `GOLD` | Unlocks all three add-ons. |
 
 Each Digistore24 product's thank-you page shows one code of its prefix. The buyer pastes it in the add-on's locked page, in Settings → Add-ons, or in the "More" page on mobile. Codes are validated offline with a checksum and kept in the backup file.

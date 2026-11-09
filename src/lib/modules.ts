@@ -14,7 +14,7 @@ export interface ModuleDef {
 
 export const MODULES: Record<ModuleKind, ModuleDef> = {
   debts: {
-    kind: 'debts', name: 'Debt Payoff Planner', short: 'Debts', price: '$47',
+    kind: 'debts', name: 'Golden Freedom', short: 'Debts', price: '$47',
     tagline: 'See the exact month you become debt-free, and how much interest you skip.',
     benefits: [
       { title: 'Your debt-free date', text: 'Every card and loan in one plan, with the month it hits zero.' },
@@ -25,7 +25,7 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-DEBTS',
   },
   goals: {
-    kind: 'goals', name: 'Savings Goals', short: 'Goals', price: '$37',
+    kind: 'goals', name: 'Golden Goals', short: 'Goals', price: '$37',
     tagline: 'Turn what you want into a number per month, based on how you actually spend.',
     benefits: [
       { title: 'Goals with a deadline', text: 'Vacation, car, cushion: each one tells you what to set aside monthly.' },
@@ -36,7 +36,7 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-GOALS',
   },
   reports: {
-    kind: 'reports', name: 'Reports & Budgets', short: 'Reports', price: '$27',
+    kind: 'reports', name: 'Golden Vision', short: 'Reports', price: '$27',
     tagline: 'Caps per category, a yearly view and your data in a spreadsheet when you want it.',
     benefits: [
       { title: 'Category budgets', text: 'A cap for groceries, dining, shopping. The bar turns red before you overspend.' },
