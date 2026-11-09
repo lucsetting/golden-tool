@@ -6,7 +6,7 @@ Stack: Vite, React, TypeScript, Tailwind v4, zustand (persisted to the browser),
 
 ## Live app and deploy
 
-**URL:** https://lucsetting.github.io/golden-tool/ (GitHub Pages, repo `lucsetting/golden-tool`, public).
+**URL:** https://app.thegoldentool.us/ (custom domain; GitHub Pages origin lucsetting.github.io/golden-tool) (GitHub Pages, repo `lucsetting/golden-tool`, public).
 
 Deploy is automatic: every push to `main` runs `.github/workflows/pages.yml`, which builds with
 `VITE_BASE=/golden-tool/`, the Supabase URL and publishable key, and `VITE_LICENSE_SECRET` from the repo secret

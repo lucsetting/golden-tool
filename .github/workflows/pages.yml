@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_BASE: /golden-tool/
+          VITE_BASE: /
           VITE_SUPABASE_URL: https://rlnfpgbtlrnitbulvwkh.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_m1nHvu7TK4Eb3RnOGNVOoA_1PpXKeOy
           VITE_LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
