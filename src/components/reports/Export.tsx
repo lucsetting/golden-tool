@@ -40,8 +40,9 @@ export default function Export() {
         </div>
       </Card>
       <Card>
-        <CardHeader title="Monthly summary" right={<div className="w-40"><Select value={mk} onChange={e => setMk(e.target.value)} aria-label="Month">{months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}</Select></div>} />
+        <CardHeader title="Monthly summary" />
         <div className="p-5">
+          <div className="w-48 mb-4"><Select value={mk} onChange={e => setMk(e.target.value)} aria-label="Month">{months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}</Select></div>
           <pre className="font-mono bg-muted rounded-md p-4 text-sm whitespace-pre-wrap text-foreground">{text}</pre>
           <Button className="mt-4" onClick={copy}>Copy</Button>
         </div>

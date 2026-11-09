@@ -1,59 +1,51 @@
-import { ChevronRightIcon, Cog6ToothIcon } from '@heroicons/react/16/solid'
+import { ArrowUturnLeftIcon, ChevronRightIcon, Cog6ToothIcon, LockClosedIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
-import { useUI } from '../ui-state'
-import { ACCESS_DAYS, LIFETIME, MODULES } from '../lib/modules'
-import { daysLeft, hasModule, isLifetime } from '../lib/access'
-import { Button, Card, Chip, PageHeader, cx } from '../components/ui'
+import { useUI, type Tab } from '../ui-state'
+import { MODULES, type ModuleKind } from '../lib/modules'
+import { hasModule } from '../lib/access'
+import { Card, Chip, PageHeader, TableRow } from '../components/ui'
 import { MODULE_ICON } from '../components/Layout'
-import CodeInput from '../components/CodeInput'
 
-const row = 't w-full h-14 px-4 flex items-center gap-3 text-left border-b border-border last:border-b-0 hover:bg-muted'
+const ABOUT: Record<ModuleKind, string> = { debts: 'Debt payoff plan', goals: 'Goals and emergency fund', reports: 'Budgets, yearly report and export' }
+const tile = 'h-8 w-8 shrink-0 rounded-lg bg-muted text-foreground inline-flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4'
+const chevron = <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
 
+/** Phone only: everything that is not on the bottom bar. */
 export default function More() {
   const setTab = useUI(s => s.setTab)
   const settings = useStore(s => s.settings)
-  const left = daysLeft(settings)
+  const links: [Tab, string, typeof Cog6ToothIcon][] = [['settings', 'Settings', Cog6ToothIcon], ['refund', 'Refund', ArrowUturnLeftIcon]]
 
   return (
-    <div className="space-y-6 pb-6">
+    <>
       <PageHeader title="More" />
-      <Card>
-        {Object.values(MODULES).map(m => {
-          const Icon = MODULE_ICON[m.kind]
-          const on = hasModule(settings, m.kind)
-          return (
-            <button key={m.kind} onClick={() => setTab(m.kind)} className={row}>
-              <span className={cx('h-6 w-6 shrink-0 rounded-md inline-flex items-center justify-center', on ? 'bg-muted-2 text-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm text-foreground truncate">{m.name}</span>
-                <span className="block text-xs text-muted-foreground mt-1 truncate">{on ? m.tagline.split(/[,.]/)[0] : `${m.price} · Not in your plan`}</span>
-              </span>
-              <Chip tone={on ? 'outline' : 'muted'}>{on ? 'Active' : 'Locked'}</Chip>
-              <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
-            </button>
-          )
-        })}
-        <button onClick={() => setTab('settings')} className={row}>
-          <span className="h-6 w-6 shrink-0 rounded-md bg-muted text-muted-foreground inline-flex items-center justify-center"><Cog6ToothIcon className="h-3.5 w-3.5" /></span>
-          <span className="flex-1 text-sm text-foreground">Settings</span>
-          <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </Card>
-
-      {!isLifetime(settings) && (
+      <div className="space-y-6">
         <Card>
-          <div className="h-11 px-4 flex items-center border-b border-border text-sm text-foreground">{LIFETIME.name}</div>
-          <div className="p-4 space-y-4">
-            <p className="text-sm text-muted-foreground leading-5">Keep adding expenses after your included {ACCESS_DAYS / 365 * 12} months.{left !== null && ` ${Math.max(0, left)} days left.`}</p>
-            <Button variant="primary" onClick={() => window.open(LIFETIME.checkoutUrl, '_blank', 'noopener')}>{`Get Lifetime · ${LIFETIME.price}`}</Button>
-          </div>
+          {Object.values(MODULES).map(m => {
+            const Icon = MODULE_ICON[m.kind]
+            return (
+              <TableRow key={m.kind} onClick={() => setTab(m.kind)} className="min-h-16!">
+                <span className={tile}><Icon /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-foreground truncate">{m.name}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 truncate">{ABOUT[m.kind]}</span>
+                </span>
+                {hasModule(settings, m.kind) ? <Chip tone="outline">Active</Chip> : <LockClosedIcon aria-label="Locked" className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                {chevron}
+              </TableRow>
+            )
+          })}
         </Card>
-      )}
-
-      <Card>
-        <div className="h-11 px-4 flex items-center border-b border-border text-sm text-foreground">Activation code</div>
-        <CodeInput compact className="p-4" />
-      </Card>
-    </div>
+        <Card>
+          {links.map(([tab, label, Icon]) => (
+            <TableRow key={tab} onClick={() => setTab(tab)}>
+              <span className={tile}><Icon /></span>
+              <span className="flex-1 text-foreground">{label}</span>
+              {chevron}
+            </TableRow>
+          ))}
+        </Card>
+      </div>
+    </>
   )
 }

@@ -142,6 +142,19 @@
   button, [role=button] { cursor: pointer; touch-action: manipulation; }
 }
 
+/* Control sizes: 36px (32px small) with a pointer, 44px on phones so every control is an easy tap.
+   In the components layer, so a height utility on one control still wins. */
+@layer components {
+  .ctl { height: 2.25rem; }
+  .ctl-sm { height: 2rem; }
+  .ctl-sq { width: 2.25rem; }
+  .ctl-sm.ctl-sq { width: 2rem; }
+  @media (width < 40rem) {
+    .ctl, .ctl-sm { height: 2.75rem; }
+    .ctl-sq, .ctl-sm.ctl-sq { width: 2.75rem; }
+  }
+}
+
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .hr { height: var(--hairline); background: var(--hairline-color); }

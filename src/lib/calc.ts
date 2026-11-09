@@ -1,10 +1,10 @@
-import type { Category, Expense } from '../types'
+import type { Category, Expense, Recurring } from '../types'
 import { currentMonthKey, daysInMonth, fmt, monthKey, monthLabel, shiftMonth, todayISO } from './money'
 
 export function expensesForMonth(expenses: Expense[], mk: string): Expense[] {
   return expenses.filter(e => monthKey(e.date) === mk).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt))
 }
-export function total(expenses: Expense[]): number {
+export function total(expenses: { amount: number }[]): number {
   return Math.round(expenses.reduce((s, e) => s + e.amount, 0) * 100) / 100
 }
 
@@ -37,11 +37,17 @@ export interface MonthStats {
   daysLeft: number // including today; 0 for past months
   safePerDay: number // remaining / daysLeft
   avgPerDay: number // spent / elapsed days
-  projected: number // avgPerDay * daysInMonth (current month) or spent (past)
+  projected: number // bills once + the daily average of the rest over the whole month (current month), or spent (past)
   pace: Pace
-  expectedByNow: number // limit * elapsed/dim
+  expectedByNow: number // bills already posted + the rest of the limit * elapsed/dim
 }
-export function monthStats(expenses: Expense[], mk: string, limit: number): MonthStats {
+/** Active bills of the current month that have no expense yet. */
+function billsDue(expenses: Expense[], mk: string, recurring: Recurring[]): Recurring[] {
+  return mk === currentMonthKey() ? recurring.filter(r => r.active && !expenses.some(e => e.recurringId === r.id)) : []
+}
+/** `expenses` are the month's. Bills (expenses with a `recurringId`, plus `recurring` items not posted yet) count once;
+ *  only the remaining, variable spending is spread over the days. */
+export function monthStats(expenses: Expense[], mk: string, limit: number, recurring: Recurring[] = []): MonthStats {
   const spent = total(expenses)
   const dim = daysInMonth(mk)
   const cur = currentMonthKey()
@@ -52,8 +58,10 @@ export function monthStats(expenses: Expense[], mk: string, limit: number): Mont
   const remaining = Math.round((limit - spent) * 100) / 100
   const elapsed = Math.max(dayOfMonth, 1)
   const avgPerDay = spent / elapsed
-  const projected = isCurrent ? Math.round(avgPerDay * dim) : spent
-  const expectedByNow = limit * (elapsed / dim)
+  const posted = total(expenses.filter(e => e.recurringId))
+  const due = total(billsDue(expenses, mk, recurring))
+  const projected = isCurrent ? Math.round(posted + due + ((spent - posted) / elapsed) * dim) : spent
+  const expectedByNow = posted + Math.max(0, limit - posted - due) * (elapsed / dim)
   const pctUsed = limit > 0 ? Math.round((spent / limit) * 1000) / 10 : 0
   let pace: Pace = 'on-track'
   if (spent > limit) pace = 'over'
@@ -66,17 +74,24 @@ export function monthStats(expenses: Expense[], mk: string, limit: number): Mont
   }
 }
 
-/** Cumulative spend per day of the month, for a line/area chart. Also returns the ideal linear pace line. */
-export function dailyCumulative(expenses: Expense[], mk: string, limit: number) {
+/** Cumulative spend per day of the month, for a line/area chart. `ideal` is the limit pace: bills on their day,
+ *  the rest of the limit spread evenly. It equals `monthStats().expectedByNow` today and the limit on the last day. */
+export function dailyCumulative(expenses: Expense[], mk: string, limit: number, recurring: Recurring[] = []) {
   const dim = daysInMonth(mk)
-  const perDay = new Array(dim).fill(0)
-  for (const e of expenses) perDay[Number(e.date.slice(8, 10)) - 1] += e.amount
+  const perDay = new Array(dim).fill(0), bills = new Array(dim).fill(0)
+  for (const e of expenses) {
+    const i = Number(e.date.slice(8, 10)) - 1
+    perDay[i] += e.amount
+    if (e.recurringId) bills[i] += e.amount
+  }
+  for (const r of billsDue(expenses, mk, recurring)) bills[Math.min(r.dayOfMonth, dim) - 1] += r.amount
+  const rest = Math.max(0, limit - total(bills.map(amount => ({ amount }))))
   const cur = currentMonthKey()
   const lastDay = mk === cur ? Number(todayISO().slice(8, 10)) : mk < cur ? dim : 0
-  let acc = 0
+  let acc = 0, accBills = 0
   return Array.from({ length: dim }, (_, i) => {
-    acc += perDay[i]
-    return { day: i + 1, spent: i < lastDay ? Math.round(acc * 100) / 100 : null, ideal: Math.round((limit * (i + 1)) / dim) }
+    acc += perDay[i]; accBills += bills[i]
+    return { day: i + 1, spent: i < lastDay ? Math.round(acc * 100) / 100 : null, ideal: Math.min(limit, Math.round(accBills + (rest * (i + 1)) / dim)) }
   })
 }
 
@@ -155,9 +170,9 @@ export function essentialsPerMonth(expenses: Expense[], categoryIds: string[] = 
   return Math.round(mks.reduce((s, mk) => s + ess(mk), 0) / mks.length)
 }
 
-/** What is left after the current daily pace runs to the end of the month. */
+/** What is left of the limit if the month ends at its projection. */
 export function safeToSave(stats: MonthStats): number {
-  return Math.max(0, Math.round(stats.remaining - stats.avgPerDay * stats.daysLeft))
+  return Math.max(0, Math.round(stats.limit - stats.projected))
 }
 
 /** Plain-English summary of one month, for copy/paste. */

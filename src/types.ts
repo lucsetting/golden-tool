@@ -6,7 +6,7 @@ export interface Category {
   name: string
   icon: string // lucide icon name, e.g. "Utensils"
   color: string // hex
-  budget?: number // optional per-category monthly cap (Pro)
+  budget?: number // optional budget for this category
 }
 
 export interface Expense {

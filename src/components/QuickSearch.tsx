@@ -19,7 +19,7 @@ export function QuickSearchButton({ className }: { className?: string }) {
   }, [])
   return (
     <>
-      <button onClick={() => setOpen(true)} className={cx('t h-8 w-full max-w-[240px] px-2.5 rounded-lg bg-muted flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted-2/60', className)}>
+      <button onClick={() => setOpen(true)} className={cx('t relative before:absolute before:-inset-y-1.5 before:inset-x-0 h-8 w-full max-w-[240px] px-2.5 rounded-lg bg-muted flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted-2/60', className)}>
         <MagnifyingGlassIcon className="h-4 w-4" /><span className="flex-1 text-left">Search</span><kbd className="hidden sm:inline text-[11px] px-1 rounded-sm bg-muted">⌘K</kbd>
       </button>
       {open && <Palette onClose={() => setOpen(false)} />}
@@ -30,8 +30,9 @@ export function QuickSearchButton({ className }: { className?: string }) {
 function Palette({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('')
   const [i, setI] = useState(0)
-  const { expenses, categories } = useStore()
-  const { setTab, openSheet } = useUI()
+  const expenses = useStore(s => s.expenses)
+  const categories = useStore(s => s.categories)
+  const { setTab, openSheet } = useUI.getState()
   const go = (t: Tab) => { setTab(t); onClose() }
 
   const items = useMemo<Item[]>(() => {

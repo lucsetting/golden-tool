@@ -38,7 +38,7 @@ export function Card({ className, children, ...rest }: React.HTMLAttributes<HTML
   return <div className={cx('rounded-xl bg-card border border-border overflow-hidden', className)} {...rest}>{children}</div>
 }
 const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  'Where it went': ChartPieIcon, Recent: ClockIcon, Transactions: ListBulletIcon, Recurring: ArrowPathIcon, 'Last 6 months': ChartBarIcon,
+  'Where it went': ChartPieIcon, Recent: ClockIcon, Transactions: ListBulletIcon, Bills: ArrowPathIcon, Payments: CalendarDaysIcon, 'Last 6 months': ChartBarIcon,
   'By category': TagIcon, 'Top merchants': BuildingStorefrontIcon, 'By weekday': CalendarDaysIcon, Debts: CreditCardIcon, 'Payment schedule': CalendarDaysIcon,
   'Your target': ShieldCheckIcon, 'Which categories count': TagIcon, 'Category budgets': ChartPieIcon, Monthly: ChartBarIcon, 'By category this year': TagIcon,
   CSV: ArrowDownTrayIcon, 'Monthly summary': DocumentTextIcon, Policy: ShieldCheckIcon, 'Request a refund': ArrowUturnLeftIcon, 'Activation codes': KeyIcon,
@@ -48,7 +48,7 @@ const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
 export function CardHeader({ title, right, className, icon }: { title: React.ReactNode; right?: React.ReactNode; className?: string; icon?: React.ReactNode }) {
   const Auto = typeof title === 'string' ? HEADER_ICONS[title] : undefined
   return (
-    <div className={cx('h-11 pl-4 pr-2 flex items-center justify-between gap-3 border-b border-border', className)}>
+    <div className={cx('h-11 max-sm:has-[.ctl]:h-14 max-sm:has-[.ctl-sm]:h-14 pl-4 pr-2 flex items-center justify-between gap-3 border-b border-border', className)}>
       <div className="flex items-center gap-2 min-w-0">
         {icon ?? (Auto ? <Auto className="h-4 w-4 text-muted-foreground shrink-0" /> : null)}
         <h3 className="text-sm text-foreground truncate">{title}</h3>
@@ -113,10 +113,10 @@ export function SectionStrip({ className }: { className?: string }) {
   if (items.length < 2 || section === 'dashboard') return null
   return (
     <div className={cx('lg:hidden -mx-4 px-4 overflow-x-auto no-scrollbar', className)}>
-      <div role="tablist" className="inline-flex min-w-full h-9 p-0.5 rounded-md bg-muted">
+      <div role="tablist" className="inline-flex min-w-full ctl p-0.5 rounded-md bg-muted">
         {items.map(i => (
           <button key={i.tab} type="button" role="tab" aria-selected={tab === i.tab} onClick={() => setTab(i.tab)}
-            className={cx('t flex-1 h-8 px-3 rounded-[6px] text-sm whitespace-nowrap', tab === i.tab ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground')}>
+            className={cx('t flex-1 h-full px-3 rounded-[6px] text-sm whitespace-nowrap', tab === i.tab ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground')}>
             {i.label}
           </button>
         ))}
@@ -167,7 +167,7 @@ export function Button({ variant = 'outline', size = 'md', open, className, chil
     ghost: 'bg-transparent text-foreground hover:bg-muted [&>svg]:text-muted-foreground',
     destructive: 'bg-card text-destructive shadow-[var(--shadow-button)] hover:bg-destructive-soft [&>svg]:text-destructive',
   }[variant]
-  const s = size === 'sm' ? 'h-8 px-2' : 'h-9 px-3'
+  const s = size === 'sm' ? 'ctl-sm px-2' : 'ctl px-3'
   return (
     <button className={cx('t inline-flex items-center justify-center gap-1 rounded-md text-sm font-medium whitespace-nowrap select-none disabled:opacity-40 disabled:pointer-events-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>span]:px-0.5', v, s, className)} {...rest}>
       {typeof children === 'string' ? <span>{children}</span> : children}
@@ -176,11 +176,11 @@ export function Button({ variant = 'outline', size = 'md', open, className, chil
 }
 /** Icon-only 36px button (sm 32). */
 export function IconButton({ label, className, size = 'md', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: 'sm' | 'md' }) {
-  return <button aria-label={label} title={label} className={cx('t inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted [&>svg]:h-4 [&>svg]:w-4', size === 'sm' ? 'h-8 w-8' : 'h-9 w-9', className)} {...rest} />
+  return <button aria-label={label} title={label} className={cx('t inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted [&>svg]:h-4 [&>svg]:w-4', size === 'sm' ? 'ctl-sm ctl-sq' : 'ctl ctl-sq', className)} {...rest} />
 }
 
 /** Field look shared by Input and Select. 16px text on phones stops iOS from zooming the page on focus. */
-export const inputCls = 't w-full h-9 px-3 rounded-md bg-input text-base sm:text-sm text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-button)] outline-none focus:shadow-[var(--shadow-focus)] disabled:opacity-50'
+export const inputCls = 't w-full ctl px-3 rounded-md bg-input text-base sm:text-sm text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-button)] outline-none focus:shadow-[var(--shadow-focus)] disabled:opacity-50'
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputCls, props.className)} />
 }
@@ -218,10 +218,10 @@ export function SettingRow({ label, description, children }: { label: string; de
 /** Segmented control: grey track, white active tab with soft shadow. `block` stretches it to the row and shares the width equally. */
 export function Segmented<T extends string>({ value, options, onChange, className, block }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; className?: string; block?: boolean }) {
   return (
-    <div role="radiogroup" className={cx('items-center h-9 p-0.5 rounded-md bg-muted', block ? 'flex w-full' : 'inline-flex', className)}>
+    <div role="radiogroup" className={cx('items-center ctl p-0.5 rounded-md bg-muted', block ? 'flex w-full' : 'inline-flex', className)}>
       {options.map(o => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={cx('t h-8 px-3 rounded-[6px] text-sm whitespace-nowrap', block && 'flex-1 min-w-0 truncate', value === o.value ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground hover:text-foreground')}>
+          className={cx('t h-full px-3 rounded-[6px] text-sm whitespace-nowrap', block && 'flex-1 min-w-0 truncate', value === o.value ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground hover:text-foreground')}>
           {o.label}
         </button>
       ))}
@@ -244,7 +244,7 @@ export function Chip({ children, tone = 'muted', className }: { children: React.
 /** Switch, 32x20. On is near-black. */
 export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={cx('t relative h-5 w-8 rounded-full shrink-0', checked ? 'bg-primary' : 'bg-muted-2')}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={cx('t relative h-5 w-8 rounded-full shrink-0 before:absolute before:-inset-3', checked ? 'bg-primary' : 'bg-muted-2')}>
       <span className={cx('t absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-[0_1px_2px_rgba(0,0,0,.25)]', checked ? 'left-[14px]' : 'left-0.5')} />
     </button>
   )
@@ -284,7 +284,7 @@ export function Menu({ trigger, children, align = 'end', className }: { trigger:
 }
 export function MenuItem({ selected, className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
   return (
-    <button type="button" role="menuitem" className={cx('t w-full text-left h-8 px-2 rounded-md text-sm flex items-center gap-2 whitespace-nowrap hover:bg-muted [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-muted-foreground', selected ? 'bg-muted text-foreground' : 'text-foreground', className)} {...rest}>{children}</button>
+    <button type="button" role="menuitem" className={cx('t w-full text-left ctl-sm px-2 rounded-md text-sm flex items-center gap-2 whitespace-nowrap hover:bg-muted [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-muted-foreground', selected ? 'bg-muted text-foreground' : 'text-foreground', className)} {...rest}>{children}</button>
   )
 }
 
@@ -339,7 +339,7 @@ export function Toaster() {
     )}>
       <span className="truncate pr-2">{toast.msg}</span>
       {toast.action && (
-        <button type="button" onClick={() => { toast.action!.run(); dismiss() }} className="t h-7 px-2.5 rounded-md text-sm font-semibold bg-[color-mix(in_oklab,var(--primary-foreground)_16%,transparent)] hover:bg-[color-mix(in_oklab,var(--primary-foreground)_26%,transparent)]">
+        <button type="button" onClick={() => { toast.action!.run(); dismiss() }} className="t relative before:absolute before:-inset-2 h-7 px-2.5 rounded-md text-sm font-semibold bg-[color-mix(in_oklab,var(--primary-foreground)_16%,transparent)] hover:bg-[color-mix(in_oklab,var(--primary-foreground)_26%,transparent)]">
           {toast.action.label}
         </button>
       )}

@@ -1,5 +1,17 @@
+// Building an Intl formatter costs far more than using one, and lists format hundreds of values: keep one per option set.
+const numFmts = new Map<string, Intl.NumberFormat>()
+const dateFmts = new Map<string, Intl.DateTimeFormat>()
+function dateFmt(opts: Intl.DateTimeFormatOptions) {
+  const k = JSON.stringify(opts)
+  let f = dateFmts.get(k)
+  if (!f) dateFmts.set(k, f = new Intl.DateTimeFormat('en-US', opts))
+  return f
+}
 export function fmt(amount: number, currency = 'USD', opts: Intl.NumberFormatOptions = {}) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2, ...opts }).format(amount)
+  const k = currency + JSON.stringify(opts)
+  let f = numFmts.get(k)
+  if (!f) numFmts.set(k, f = new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2, ...opts }))
+  return f.format(amount)
 }
 export function fmtCompact(amount: number, currency = 'USD') {
   return fmt(amount, currency, { notation: Math.abs(amount) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(amount) >= 10000 ? 1 : 0 })
@@ -30,7 +42,7 @@ export function daysInMonth(mk: string): number {
 }
 export function monthLabel(mk: string, style: 'long' | 'short' = 'long'): string {
   const [y, m] = mk.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: style, year: 'numeric' })
+  return dateFmt({ month: style, year: 'numeric' }).format(new Date(y, m - 1, 1))
 }
 export function dateLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -39,5 +51,5 @@ export function dateLabel(iso: string): string {
   if (iso === today) return 'Today'
   const yd = new Date(); yd.setDate(yd.getDate() - 1)
   if (iso === `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`) return 'Yesterday'
-  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return dateFmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(dt)
 }

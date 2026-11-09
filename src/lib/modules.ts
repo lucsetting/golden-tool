@@ -6,7 +6,6 @@ export interface ModuleDef {
   kind: ModuleKind
   name: string
   short: string
-  tagline: string
   benefits: { title: string; text: string }[]
   checkoutUrl: string // Digistore24 order form of this upsell (placeholder until launch)
   price: string
@@ -15,7 +14,6 @@ export interface ModuleDef {
 export const MODULES: Record<ModuleKind, ModuleDef> = {
   debts: {
     kind: 'debts', name: 'Golden Freedom', short: 'Debts', price: '$47',
-    tagline: 'See the exact month you become debt-free, and how much interest you skip.',
     benefits: [
       { title: 'Your debt-free date', text: 'Every card and loan in one plan, with the month it hits zero.' },
       { title: 'Snowball or avalanche', text: 'Pick the method that fits you and see the difference in dollars.' },
@@ -26,7 +24,6 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
   },
   goals: {
     kind: 'goals', name: 'Golden Goals', short: 'Goals', price: '$37',
-    tagline: 'Turn what you want into a number per month, based on how you actually spend.',
     benefits: [
       { title: 'Goals with a deadline', text: 'Vacation, car, cushion: each one tells you what to set aside monthly.' },
       { title: 'Emergency fund target', text: 'Calculated from your real essential spending, not a generic rule.' },
@@ -37,7 +34,6 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
   },
   reports: {
     kind: 'reports', name: 'Golden Vision', short: 'Reports', price: '$27',
-    tagline: 'Caps per category, a yearly view and your data in a spreadsheet when you want it.',
     benefits: [
       { title: 'Category budgets', text: 'A cap for groceries, dining, shopping. The bar turns red before you overspend.' },
       { title: 'Yearly report', text: 'Twelve months side by side, with the total and the monthly average.' },
