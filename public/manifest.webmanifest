@@ -1,0 +1,15 @@
+{
+  "name": "Golden Tool",
+  "short_name": "Golden Tool",
+  "description": "Set a limit. Log what you spend. See exactly where your money goes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0E0F12",
+  "theme_color": "#0E0F12",
+  "icons": [
+    { "src": "logo-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "logo-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "logo-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,43 @@
+export function fmt(amount: number, currency = 'USD', opts: Intl.NumberFormatOptions = {}) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2, ...opts }).format(amount)
+}
+export function fmtCompact(amount: number, currency = 'USD') {
+  return fmt(amount, currency, { notation: Math.abs(amount) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(amount) >= 10000 ? 1 : 0 })
+}
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'BRL', 'MXN', 'CHF'] as const
+
+export function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+export function todayISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+export function monthKey(date: string): string {
+  return date.slice(0, 7)
+}
+export function currentMonthKey(): string {
+  return monthKey(todayISO())
+}
+export function shiftMonth(mk: string, delta: number): string {
+  const [y, m] = mk.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+export function daysInMonth(mk: string): number {
+  const [y, m] = mk.split('-').map(Number)
+  return new Date(y, m, 0).getDate()
+}
+export function monthLabel(mk: string, style: 'long' | 'short' = 'long'): string {
+  const [y, m] = mk.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: style, year: 'numeric' })
+}
+export function dateLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const today = todayISO()
+  if (iso === today) return 'Today'
+  const yd = new Date(); yd.setDate(yd.getDate() - 1)
+  if (iso === `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`) return 'Yesterday'
+  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
