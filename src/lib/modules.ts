@@ -53,10 +53,10 @@ export const LIFETIME = {
   checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-LIFETIME',
 }
 /** Money-back window shown in the app. Must match the guarantee set on the Digistore24 products. */
-export const REFUND_DAYS = 30
+export const REFUND_DAYS = 60
 export const DIGISTORE_BUYERS_URL = 'https://www.digistore24.com/en/buyers'
 export const DIGISTORE_SUPPORT_EMAIL = 'support@digistore24.com'
-export const SUPPORT_EMAIL = 'support@PLACEHOLDER.com' // owner's own support address
+export const SUPPORT_EMAIL = 'office@nevian.io' // Nevian Enterprise LLC
 export const BUNDLE_CHECKOUT_URL = 'https://www.digistore24.com/product/PLACEHOLDER-BUNDLE'
 
 /** Access included with the front-end product, in days, counted from first use. */
