@@ -20,7 +20,7 @@ export function QuickSearchButton({ className }: { className?: string }) {
   return (
     <>
       <button onClick={() => setOpen(true)} className={cx('t h-8 w-full max-w-[240px] px-2.5 rounded-lg bg-muted flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted-2/60', className)}>
-        <MagnifyingGlassIcon className="h-4 w-4" /><span className="flex-1 text-left">Search</span><kbd className="text-[11px] px-1 rounded-sm bg-muted">⌘K</kbd>
+        <MagnifyingGlassIcon className="h-4 w-4" /><span className="flex-1 text-left">Search</span><kbd className="hidden sm:inline text-[11px] px-1 rounded-sm bg-muted">⌘K</kbd>
       </button>
       {open && <Palette onClose={() => setOpen(false)} />}
     </>

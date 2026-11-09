@@ -69,7 +69,7 @@ export default function Insights() {
   return (
     <div className="space-y-6 pb-6">
       {header}
-      <MetricTray className="sm:grid-cols-3">
+      <MetricTray>
         <Metric label="This month" value={m0(d.st.spent)} sub={pct === null ? undefined : <Chip tone={pct <= 0 ? 'good' : 'bad'}>{pct > 0 ? '+' : ''}{pct}% vs last month</Chip>} />
         <Metric label="Last month" value={m0(d.prevTotal)} sub={monthLabel(shiftMonth(month, -1))} />
         <Metric label="Monthly average" value={m0(d.avg)} sub="Last 6 months with data" />
@@ -115,7 +115,7 @@ export default function Insights() {
           {d.weekday.map((w, i) => (
             <div key={w.name} className="flex flex-col items-center justify-end gap-2 min-w-0" title={m2(w.avg)}>
               <div className="w-full max-w-6 flex-1 flex items-end">
-                <div className="t w-full rounded-t-sm" style={{ height: `${Math.max(2, (w.avg / maxAvg) * 100)}%`, background: i === topDay && w.avg > 0 ? 'var(--gold)' : 'var(--muted-2)' }} />
+                <div className="t w-full rounded-t-sm" style={{ height: `${Math.max(2, (w.avg / maxAvg) * 100)}%`, background: i === topDay && w.avg > 0 ? 'var(--chart)' : 'var(--chart-soft)' }} />
               </div>
               <span className="text-xs text-muted-foreground">{w.name}</span>
             </div>
@@ -123,7 +123,7 @@ export default function Insights() {
         </div>
       </Card>
 
-      <MetricTray className="grid-cols-2 lg:grid-cols-4">
+      <MetricTray cols={4}>
         <Metric label="Biggest purchase" value={d.biggest ? m0(d.biggest.amount) : '-'} sub={d.biggest?.name} />
         <Metric label="Avg per expense" value={m2(d.exps.length ? d.st.spent / d.exps.length : 0)} />
         <Metric label="Expenses" value={d.exps.length} />

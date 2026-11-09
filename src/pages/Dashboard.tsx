@@ -52,7 +52,7 @@ export default function Dashboard() {
         <SpendCurve data={curve} currency={currency} showIdeal={monthlyLimit > 0} monthName={monthName} />
       </Card>
 
-      <MetricTray className="grid-cols-2 lg:grid-cols-4">
+      <MetricTray cols={4}>
         <Metric label="Remaining" value={fmt(st.remaining, currency, { maximumFractionDigits: 0 })} tone={tone} icon={<BanknotesIcon />} />
         <Metric label="Safe to spend today" value={isCurrent ? fmt(st.safePerDay, currency, { maximumFractionDigits: 0 }) : '—'} icon={<CalendarDaysIcon />} />
         <Metric label="Projected" value={m0(st.projected)} sub={`limit ${m0(monthlyLimit)}`} icon={<ArrowTrendingUpIcon />} />

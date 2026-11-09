@@ -69,7 +69,7 @@ export default function Onboarding() {
 
         <div className="flex items-center justify-between mt-4 h-8">
           <div className="flex gap-1.5" aria-label={`Step ${step} of 3`}>
-            {[1, 2, 3].map(i => <span key={i} className={cx('h-1.5 w-1.5 rounded-full', i === step ? 'bg-gold' : 'bg-muted-2')} />)}
+            {[1, 2, 3].map(i => <span key={i} className={cx('h-1.5 w-1.5 rounded-full', i === step ? 'bg-primary' : 'bg-muted-2')} />)}
           </div>
           {step > 1 && <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)}>Back</Button>}
         </div>

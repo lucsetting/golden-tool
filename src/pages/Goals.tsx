@@ -32,7 +32,7 @@ function Progress({ goal, target, months, sts, currency }: { goal: Goal; target:
   const eta = left === 0 ? 'Funded' : sts > 0 ? `${Math.ceil(left / sts)} months to go at ${fmt(sts, currency)}/month` : '—'
   return (
     <div className="p-5 flex items-center gap-6">
-      <ProgressRing value={pct} size={120} color="var(--gold)"><span className="text-xl tabular-nums">{pct}%</span></ProgressRing>
+      <ProgressRing value={pct} size={120} ><span className="text-xl tabular-nums">{pct}%</span></ProgressRing>
       <div className="min-w-0">
         <div className="text-sm text-muted-foreground">{months}-month fund</div>
         <div className="text-2xl tabular-nums mt-2">{fmt(goal.saved, currency)} <span className="text-sm text-muted-foreground">of {fmt(target, currency)}</span></div>
@@ -50,7 +50,7 @@ function GoalsTab({ headless }: { headless?: boolean } = {}) {
   return (
     <div className="space-y-6 pb-6">
       {!headless && <PageHeader title="Goals" subtitle="Each goal tells you what to set aside this month." actions={<Button variant="primary" onClick={() => setSheet({})}><PlusIcon />Add goal</Button>} />}
-      <MetricTray className="grid-cols-1 sm:grid-cols-3">
+      <MetricTray>
         <Metric label="Safe to save this month" value={m0(sts)} />
         <Metric label="Saved so far" value={m0(goals.reduce((s, g) => s + g.saved, 0))} />
         <Metric label="Needed per month" value={m0(goals.reduce((s, g) => s + monthlyNeed(g), 0))} />
@@ -77,7 +77,7 @@ function EmergencyTab() {
       <PageHeader title="Emergency fund" subtitle="Three to six months of essentials, calculated from what you actually spend." />
       <Card>
         <CardHeader title="Your target" />
-        <MetricTray className="grid-cols-1 sm:grid-cols-3">
+        <MetricTray>
           <Metric label="Essentials per month" value={m0(ess)} />
           <Metric label="3-month target" value={m0(ess * 3)} />
           <Metric label="6-month target" value={m0(ess * 6)} />

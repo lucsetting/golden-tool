@@ -1,12 +1,14 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
 
-/* Golden Tool design system. Modeled on Mochi (use.themochi.app, measured 06/10/2026 at 1440x900):
-   neutral surfaces, hairline borders, 450 weight, line-height = font-size, spacing from padding.
-   Brand colour is gold instead of Mochi's purple/neutral primary. */
+/* Golden Tool design system. Modeled on Mochi's light theme (use.themochi.app, measured at 1440x900):
+   black and grey surfaces, hairline borders, 14/20 text at weight 450, 150ms motion.
+   Colour belongs to categories, charts and warnings. Gold is reserved for three marks only:
+   the logo, the Lifetime Access badge and the streak mark. Never on a button, ring, bar or chart. */
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-medium: 450;
+  --font-weight-semibold: 550;
 
   --color-background: var(--background);
   --color-card: var(--card);
@@ -15,6 +17,8 @@
   --color-border: var(--border);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-input: var(--input);
   --color-nav-active: var(--nav-active);
   --color-rail-active: var(--rail-active);
@@ -22,7 +26,6 @@
   --color-gold: var(--gold);
   --color-gold-ink: var(--gold-ink);
   --color-gold-soft: var(--gold-soft);
-  --color-on-gold: #1c1503;
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warn: var(--warn);
@@ -37,42 +40,50 @@
   --radius-2xl: 16px;
   --radius-3xl: 24px;
 
-  /* Mochi text scale: line-height equals size; spacing comes from padding. */
-  --text-xs: 12px;  --text-xs--line-height: 12px;
-  --text-sm: 14px;  --text-sm--line-height: 14px;
-  --text-base: 16px; --text-base--line-height: 16px;
-  --text-lg: 18px;  --text-lg--line-height: 18px;
-  --text-xl: 20px;  --text-xl--line-height: 20px;
-  --text-2xl: 24px; --text-2xl--line-height: 24px;
-  --text-3xl: 32px; --text-3xl--line-height: 32px;
+  --text-xs: 12px;  --text-xs--line-height: 16px;
+  --text-sm: 14px;  --text-sm--line-height: 20px;
+  --text-base: 16px; --text-base--line-height: 24px;
+  --text-lg: 18px;  --text-lg--line-height: 24px;
+  --text-xl: 20px;  --text-xl--line-height: 28px;
+  --text-2xl: 24px; --text-2xl--line-height: 32px;
+  --text-3xl: 32px; --text-3xl--line-height: 40px;
 
   --shadow-button: 0 1px 2px 0 rgba(0,0,0,.05), 0 0 0 var(--hairline) var(--hairline-color);
   --shadow-button-open: 0 1px 2px 0 rgba(0,0,0,.05), 0 0 0 var(--hairline) var(--hairline-strong);
-  --shadow-button-applied: 0 1px 2px 0 rgba(0,0,0,.05), 0 0 0 var(--hairline) var(--gold);
+  /* a filter that is narrowing the list: blue ring, as in the reference */
+  --shadow-button-applied: 0 1px 2px 0 rgba(0,0,0,.05), 0 0 0 1px var(--applied);
+  /* keyboard/typing focus on a field: neutral */
+  --shadow-focus: 0 0 0 1px var(--ring), 0 0 0 3px color-mix(in oklab, var(--ring) 28%, transparent);
   --shadow-card: 0 0 0 var(--hairline) var(--hairline-color), 0 12px 24px rgba(0,0,0,.05);
   --shadow-card-xl: 0 0 0 var(--hairline) var(--hairline-color), 0 16px 32px rgba(0,0,0,.075);
   --shadow-dialog: inset 0 0 0 var(--hairline) var(--border), 0 16px 32px rgba(0,0,0,.075);
   --shadow-popover: 0 12px 24px rgba(0,0,0,.10), 0 0 0 var(--hairline) rgba(0,0,0,.25);
+  --shadow-pill: 0 1px 2px 0 rgba(0,0,0,.06), 0 0 0 var(--hairline) var(--hairline-color);
 
   --ease-standard: cubic-bezier(.4,0,.2,1);
 }
 
 :root {
   --hairline: 1px;
-  /* light (Mochi :root) */
-  --background: #f5f5f5;          /* body behind the panel = muted, like Mochi's rail and section bar */
+  --background: #f5f5f5;          /* shell behind the panel: rail and section bar */
   --card: #ffffff;
   --muted: #f5f5f5;
-  --muted-2: #e7e7e7;
+  --muted-2: #e5e5e5;
   --border: #e5e5e5;
   --hairline-color: #e0e0e0;
   --hairline-strong: #b0b0b0;
   --foreground: #0a0a0a;
   --muted-foreground: #737373;
-  --input: #f6f6f6;
-  --nav-active: #efeeee;
-  --rail-active: #dedede;
+  --primary: #171717;
+  --primary-foreground: #ffffff;
+  --ring: #a3a3a3;
+  --applied: #3b82f6;
+  --input: #ffffff;
+  --nav-active: #ffffff;          /* active section-bar item: white pill */
+  --rail-active: #e5e5e5;
   --line: #e5e5e5;
+  --chart: #171717;               /* main chart series */
+  --chart-soft: #d4d4d4;          /* secondary bars, ideal line */
   --gold: #E0B13A;
   --gold-ink: #946c0f;
   --gold-soft: #fbf3dc;
@@ -83,19 +94,25 @@
 }
 @media (min-resolution: 2dppx) { :root { --hairline: 0.5px; } }
 [data-theme="dark"] {
-  --background: #262626;          /* rail + section bar (Mochi bg-muted) */
+  --background: #262626;          /* shell: rail and section bar (measured on the reference) */
   --card: #171717;                /* content panel and cards */
   --muted: #262626;
-  --muted-2: #3c3c3c;             /* active sidebar row */
-  --nav-active: #484848;
+  --muted-2: #3c3c3c;
+  --nav-active: #3a3a3a;
   --rail-active: #3b3b3b;
   --line: #3c3c3c;
-  --border: rgba(255,255,255,.12);
-  --hairline-color: rgba(255,255,255,.15);
+  --border: rgba(255,255,255,.10);
+  --hairline-color: rgba(255,255,255,.14);
   --hairline-strong: rgba(255,255,255,.30);
   --foreground: #fafafa;
   --muted-foreground: #a3a3a3;
+  --primary: #e5e5e5;
+  --primary-foreground: #171717;
+  --ring: #737373;
+  --applied: #60a5fa;
   --input: rgba(255,255,255,.045);
+  --chart: #e5e5e5;
+  --chart-soft: #404040;
   --gold: #E8C15A;
   --gold-ink: #f0cd6c;
   --gold-soft: rgba(232,193,90,.14);
@@ -105,34 +122,33 @@
   color-scheme: dark;
 }
 
-html, body, #root { height: 100%; }
-body {
-  @apply bg-background text-foreground font-sans text-sm antialiased;
-  font-weight: 450;
-  letter-spacing: -0.2px;
-  font-variant-numeric: tabular-nums;
-  -webkit-tap-highlight-color: transparent;
+/* Element defaults live in the base layer so a utility class always wins over them. */
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+    font-weight: 450;
+    letter-spacing: -0.1px;
+    font-variant-numeric: tabular-nums;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  h1, h2, h3 { font-weight: 500; letter-spacing: -0.2px; }
+  input, button, select, textarea { font: inherit; letter-spacing: inherit; color: inherit; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+  * { scrollbar-width: thin; scrollbar-color: var(--muted-2) transparent; }
+  *:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  button, [role=button] { cursor: pointer; touch-action: manipulation; }
 }
-h1, h2, h3 { font-weight: 450; }
-input, button, select, textarea { font: inherit; letter-spacing: inherit; color: inherit; }
-input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-input[type=number] { -moz-appearance: textfield; }
-* { scrollbar-width: thin; scrollbar-color: var(--muted-2) transparent; }
-*:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-button, [role=button] { cursor: pointer; }
 
-/* Gold surface: subtle top-light gradient + hairline ring, so gold reads as metal, not yellow. */
-.gold-surface { background: linear-gradient(180deg, color-mix(in oklab, var(--gold) 82%, white) 0%, var(--gold) 55%, color-mix(in oklab, var(--gold) 90%, black) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.18), 0 0 0 var(--hairline) color-mix(in oklab, var(--gold) 70%, black); }
-/* Mochi hairline divider */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 .hr { height: var(--hairline); background: var(--hairline-color); }
-/* Motion: 150ms standard */
+/* Motion: 150ms standard. Screens paint at once; only overlays animate in. */
 .t { transition: color .15s var(--ease-standard), background-color .15s var(--ease-standard), box-shadow .15s var(--ease-standard), opacity .15s var(--ease-standard), transform .15s var(--ease-standard); }
-@keyframes dialogIn { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: none } }
-@keyframes sheetUp { from { transform: translateY(16px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes dialogIn { from { opacity: 0; transform: scale(.97) } to { opacity: 1; transform: none } }
+@keyframes sheetUp { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-@keyframes pageIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
-@keyframes riseIn { from { opacity: 0; transform: translateY(8px) scale(.995) } to { opacity: 1; transform: none } }
-/* Page enter: the wrapper fades up; cards inside stagger (delay set by Layout per element). */
-.page-enter { animation: pageIn .28s var(--ease-standard) both; }
-.page-enter .ui-card, .page-enter [data-anim] { animation: riseIn .4s var(--ease-standard) both; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px) } to { opacity: 1; transform: translate(-50%, 0) } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

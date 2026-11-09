@@ -28,7 +28,7 @@ export default function SetupCard() {
       <div className="p-5">
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="relative h-4 w-4 rounded-full" style={{ background: `conic-gradient(var(--gold) ${pct}%, var(--muted-2) 0)` }}><span className="absolute inset-[3px] rounded-full bg-card" /></span>
+            <span className="relative h-4 w-4 rounded-full" style={{ background: `conic-gradient(var(--primary) ${pct}%, var(--muted-2) 0)` }}><span className="absolute inset-[3px] rounded-full bg-card" /></span>
             {pct}%
           </span>
           <button onClick={skip} className="text-sm text-muted-foreground hover:text-foreground">Skip</button>

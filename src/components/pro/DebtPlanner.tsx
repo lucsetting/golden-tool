@@ -66,7 +66,7 @@ export default function DebtPlanner() {
 
       {plan && base && (
         <>
-          <MetricTray className="sm:grid-cols-3">
+          <MetricTray>
             <Metric label="Debt-free in" value={capped ? '-' : `${plan.months} months`} sub={capped ? undefined : when(plan.months)} />
             <Metric label="Interest paid" value={f(plan.interestPaid)} />
             <Metric label="Interest saved" value={f(saved)} tone="good" sub="vs minimums only" />

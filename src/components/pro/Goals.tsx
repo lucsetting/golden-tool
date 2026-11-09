@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../../store'
-import { Button, Card, Chip, Dialog, Empty, Field, IconButton, Input } from '../ui'
+import { Button, Card, Chip, Dialog, Empty, Field, IconButton, Input, ProgressBar } from '../ui'
 import { fmt, todayISO } from '../../lib/money'
 import type { Goal } from '../../types'
 
-const GOLD = '#E4B44A' // stored on the goal for data compatibility; the UI draws every bar in brand gold
+const GOAL_COLOR = '#E4B44A' // stored on the goal for data compatibility; the UI draws every bar in the neutral primary
 
 /** Amount to set aside per month to hit the deadline; 0 when reached, no deadline or deadline passed. */
 export function monthlyNeed(g: Goal): number {
@@ -32,7 +32,7 @@ function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
   const [deadline, setDeadline] = useState(goal?.deadline ?? '')
   const ok = name.trim() && Number(target) > 0
   const save = () => {
-    const d = { name: name.trim(), target: Number(target), saved: Number(saved) || 0, deadline: deadline || undefined, color: goal?.color ?? GOLD }
+    const d = { name: name.trim(), target: Number(target), saved: Number(saved) || 0, deadline: deadline || undefined, color: goal?.color ?? GOAL_COLOR }
     if (goal) updateGoal(goal.id, d); else addGoal(d)
     onClose()
   }
@@ -66,7 +66,7 @@ export function GoalCard({ g, currency, onEdit }: { g: Goal; currency: string; o
         <Chip>{Math.round(pct)}%</Chip>
       </div>
       <div className="mt-4 text-2xl tabular-nums">{fmt(g.saved, currency)} <span className="text-sm text-muted-foreground">of {fmt(g.target, currency)}</span></div>
-      <div className="mt-4 h-1.5 rounded-full bg-muted overflow-hidden"><div className="t h-full rounded-full bg-gold" style={{ width: `${Math.min(100, pct)}%` }} /></div>
+      <ProgressBar value={pct} className="mt-4" />
       {hint && <p className="text-xs text-muted-foreground mt-3">{hint}</p>}
       <div className="mt-4 flex items-center gap-2">
         {adding ? (

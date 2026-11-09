@@ -6,6 +6,7 @@ import {
   BarChart3, CreditCard, PieChart, Receipt, SearchX, Target, TrendingUp, Wallet, Inbox,
 } from 'lucide-react'
 import type { Category } from '../types'
+import { SECTION_TABS, sectionOf, useUI } from '../ui-state'
 
 export function cx(...a: Array<string | false | null | undefined>) { return a.filter(Boolean).join(' ') }
 
@@ -32,9 +33,9 @@ export function CategoryBadge({ category, size = 24, className }: { category: Pi
 
 /* ---------- Surfaces ---------- */
 
-/** Card: bg card, hairline border, radius 12. Mochi inner card. */
+/** Card: white, hairline border, radius 12. */
 export function Card({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('ui-card rounded-xl bg-card border border-border overflow-hidden', className)} {...rest}>{children}</div>
+  return <div className={cx('rounded-xl bg-card border border-border overflow-hidden', className)} {...rest}>{children}</div>
 }
 const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   'Where it went': ChartPieIcon, Recent: ClockIcon, Transactions: ListBulletIcon, Recurring: ArrowPathIcon, 'Last 6 months': ChartBarIcon,
@@ -47,63 +48,107 @@ const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
 export function CardHeader({ title, right, className, icon }: { title: React.ReactNode; right?: React.ReactNode; className?: string; icon?: React.ReactNode }) {
   const Auto = typeof title === 'string' ? HEADER_ICONS[title] : undefined
   return (
-    <div className={cx('h-11 px-4 flex items-center justify-between border-b border-border', className)}>
+    <div className={cx('h-11 pl-4 pr-2 flex items-center justify-between gap-3 border-b border-border', className)}>
       <div className="flex items-center gap-2 min-w-0">
         {icon ?? (Auto ? <Auto className="h-4 w-4 text-muted-foreground shrink-0" /> : null)}
-        <div className="text-sm text-foreground truncate">{title}</div>
+        <h3 className="text-sm text-foreground truncate">{title}</h3>
       </div>
-      {right && <div className="flex items-center gap-2 shrink-0">{right}</div>}
+      {right && <div className="flex items-center gap-2 shrink-0 pr-2">{right}</div>}
     </div>
   )
 }
-/** Metric tray: muted frame, 4px padding, inner cards. Mochi dashboard top row. */
-export function MetricTray({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div data-anim className={cx('rounded-xl bg-muted border border-border p-1 grid gap-1', className)}>{children}</div>
+/** Metric tray: grey frame, 4px padding, white cards inside.
+ *  `cols={4}` is 2x2 on a phone; `cols={3}` (and 2) collapses to compact label/value rows on a phone. */
+export function MetricTray({ children, cols = 3, className }: { children: React.ReactNode; cols?: 2 | 3 | 4; className?: string }) {
+  const grid = cols === 4 ? 'grid-cols-2 lg:grid-cols-4' : cols === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'
+  return <div data-rows={cols === 4 ? undefined : ''} className={cx('group/tray rounded-xl bg-muted border border-border p-1 grid gap-1', grid, className)}>{children}</div>
 }
 export function Metric({ label, value, sub, icon, tone, className }: { label: string; value: React.ReactNode; sub?: React.ReactNode; icon?: React.ReactNode; tone?: 'good' | 'warn' | 'bad'; className?: string }) {
-  const toneCls = tone === 'good' ? 'text-success' : tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-destructive' : ''
+  const toneCls = tone === 'good' ? 'text-success' : tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-destructive' : 'text-foreground'
   return (
-    <div className={cx('rounded-lg bg-card border border-border p-5 min-h-[116px] flex flex-col justify-between', className)}>
+    <div className={cx(
+      'rounded-lg bg-card border border-border p-4 sm:p-5 min-h-[104px] sm:min-h-[116px] flex flex-col justify-between gap-4',
+      'max-sm:group-data-[rows]/tray:min-h-0 max-sm:group-data-[rows]/tray:flex-row max-sm:group-data-[rows]/tray:items-center',
+      className,
+    )}>
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="flex items-end justify-between gap-3 mt-6">
-        <div>
-          <div className={cx('text-2xl text-foreground tabular-nums', toneCls)}>{value}</div>
-          {sub && <div className="text-xs text-muted-foreground mt-2">{sub}</div>}
+      <div className="flex items-end justify-between gap-3 max-sm:group-data-[rows]/tray:text-right">
+        <div className="min-w-0">
+          <div className={cx('text-xl sm:text-2xl tabular-nums tracking-tight max-sm:group-data-[rows]/tray:text-base', toneCls)}>{value}</div>
+          {sub && <div className="text-xs text-muted-foreground mt-1 max-sm:group-data-[rows]/tray:mt-0">{sub}</div>}
         </div>
-        {icon && <span className="h-6 w-6 rounded-md bg-muted text-muted-foreground inline-flex items-center justify-center shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>}
+        {icon && <span className="h-6 w-6 rounded-md bg-muted text-muted-foreground inline-flex items-center justify-center shrink-0 max-sm:group-data-[rows]/tray:hidden [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>}
       </div>
     </div>
   )
 }
-/** Page header: 18px title, 14px muted subtitle, actions right. Dashboard pages. */
+/** Phone only: the screens of the current section as a segmented strip. Desktop has the section bar for this. */
+export function SectionStrip({ className }: { className?: string }) {
+  const tab = useUI(s => s.tab)
+  const setTab = useUI(s => s.setTab)
+  const section = sectionOf(tab)
+  const items = SECTION_TABS[section]
+  // The main section's screens are already on the phone bar.
+  if (items.length < 2 || section === 'dashboard') return null
+  return (
+    <div className={cx('lg:hidden -mx-4 px-4 overflow-x-auto no-scrollbar', className)}>
+      <div role="tablist" className="inline-flex min-w-full h-9 p-0.5 rounded-md bg-muted">
+        {items.map(i => (
+          <button key={i.tab} type="button" role="tab" aria-selected={tab === i.tab} onClick={() => setTab(i.tab)}
+            className={cx('t flex-1 h-8 px-3 rounded-[6px] text-sm whitespace-nowrap', tab === i.tab ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground')}>
+            {i.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+/** Page header: 18px title, muted subtitle under it, actions on the right (their own row on a phone).
+ *  On a phone the section's screens follow as a segmented strip. */
 export function PageHeader({ title, subtitle, actions }: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
-      <div className="min-w-0">
-        <h1 className="text-lg text-foreground">{title}</h1>
-        {subtitle && <p className="text-sm text-muted-foreground mt-2 leading-5">{subtitle}</p>}
+    <header className="mb-5 sm:mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg text-foreground">{title}</h1>
+          {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
-    </div>
+      <SectionStrip className="mt-4" />
+    </header>
   )
 }
 export function Divider({ className }: { className?: string }) { return <div className={cx('hr my-8', className)} /> }
 
+/* ---------- Table ---------- */
+/** Column header row of a list inside a Card: 36px, grey band, 12px muted labels. Give each child the same width class as its row cell. */
+export function TableHead({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cx('h-9 px-4 flex items-center gap-3 text-xs text-muted-foreground bg-muted/60 border-b border-border', className)}>{children}</div>
+}
+/** A list row: 56px minimum, hairline between rows. Becomes a button (hover, focus ring) when `onClick` is given. */
+export function TableRow({ children, onClick, className }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+  const cls = cx('w-full min-h-14 px-4 py-2.5 flex items-center gap-3 text-left text-sm border-b border-border last:border-b-0', className)
+  return onClick
+    ? <button type="button" onClick={onClick} className={cx('t hover:bg-muted/50 focus-visible:outline-offset-[-2px]', cls)}>{children}</button>
+    : <div className={cls}>{children}</div>
+}
+
 /* ---------- Controls ---------- */
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'outline' | 'ghost' | 'destructive' | 'soft'; size?: 'sm' | 'md'; open?: boolean }
-/** Mochi button: 36px (sm 32), radius 8, 14/450, gap 4; text gets 2px side padding when next to an icon. */
+/** Button: 36px (sm 32), radius 8, 14/450, gap 4. Primary is near-black; outline is white with a hairline ring and soft shadow. */
 export function Button({ variant = 'outline', size = 'md', open, className, children, ...rest }: BtnProps) {
   const v = {
     outline: cx('bg-card text-foreground hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] [&>svg]:text-muted-foreground', open ? 'shadow-[var(--shadow-button-open)] [&>svg:first-child]:text-foreground' : 'shadow-[var(--shadow-button)]'),
-    primary: 'gold-surface text-on-gold hover:brightness-[1.04] [&>svg]:text-on-gold/80',
+    primary: 'bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,.12)] hover:bg-[color-mix(in_oklab,var(--primary)_88%,var(--card))] active:bg-[color-mix(in_oklab,var(--primary)_80%,var(--card))]',
     soft: 'bg-muted text-foreground hover:bg-muted-2 [&>svg]:text-muted-foreground',
     ghost: 'bg-transparent text-foreground hover:bg-muted [&>svg]:text-muted-foreground',
     destructive: 'bg-card text-destructive shadow-[var(--shadow-button)] hover:bg-destructive-soft [&>svg]:text-destructive',
   }[variant]
   const s = size === 'sm' ? 'h-8 px-2' : 'h-9 px-3'
   return (
-    <button className={cx('t inline-flex items-center justify-center gap-1 rounded-md text-sm font-medium select-none disabled:opacity-40 disabled:pointer-events-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>span]:px-0.5', v, s, className)} {...rest}>
+    <button className={cx('t inline-flex items-center justify-center gap-1 rounded-md text-sm font-medium whitespace-nowrap select-none disabled:opacity-40 disabled:pointer-events-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>span]:px-0.5', v, s, className)} {...rest}>
       {typeof children === 'string' ? <span>{children}</span> : children}
     </button>
   )
@@ -113,7 +158,8 @@ export function IconButton({ label, className, size = 'md', ...rest }: React.But
   return <button aria-label={label} title={label} className={cx('t inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted [&>svg]:h-4 [&>svg]:w-4', size === 'sm' ? 'h-8 w-8' : 'h-9 w-9', className)} {...rest} />
 }
 
-export const inputCls = 't w-full h-9 px-3 rounded-md bg-input text-sm text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-button)] outline-none focus:shadow-[var(--shadow-button-applied)]'
+/** Field look shared by Input and Select. 16px text on phones stops iOS from zooming the page on focus. */
+export const inputCls = 't w-full h-9 px-3 rounded-md bg-input text-base sm:text-sm text-foreground placeholder:text-muted-foreground shadow-[var(--shadow-button)] outline-none focus:shadow-[var(--shadow-focus)] disabled:opacity-50'
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputCls, props.className)} />
 }
@@ -125,59 +171,71 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
     </span>
   )
 }
-/** Form field: 14/450 label, 12px gap. */
+/** Form field: label, control, then hint or error. */
 export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={cx('block', className)}>
-      <span className="block text-sm text-foreground mb-3">{label}</span>
+      <span className="block text-sm text-foreground mb-2">{label}</span>
       {children}
-      {error ? <span className="block text-xs text-destructive mt-2">{error}</span> : hint ? <span className="block text-xs text-muted-foreground mt-2">{hint}</span> : null}
+      {error ? <span className="block text-xs text-destructive mt-1.5">{error}</span> : hint ? <span className="block text-xs text-muted-foreground mt-1.5">{hint}</span> : null}
     </label>
   )
 }
-/** Settings row: label left (240), control right. Mochi settings. */
+/** Settings row: label and description left, control right (240). Stacks on a phone. */
 export function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
-        <div className="text-base text-foreground">{label}</div>
-        {description && <div className="text-sm text-muted-foreground mt-2 leading-5">{description}</div>}
+        <div className="text-sm text-foreground">{label}</div>
+        {description && <div className="text-sm text-muted-foreground mt-0.5">{description}</div>}
       </div>
-      <div className="w-60 shrink-0">{children}</div>
+      <div className="w-full sm:w-60 shrink-0">{children}</div>
     </div>
   )
 }
 
-/** Segmented control: muted track, card-coloured active tab with button shadow. Mochi "Any | Matched | Unmatched". */
-export function Segmented<T extends string>({ value, options, onChange, className }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; className?: string }) {
+/** Segmented control: grey track, white active tab with soft shadow. `block` stretches it to the row and shares the width equally. */
+export function Segmented<T extends string>({ value, options, onChange, className, block }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; className?: string; block?: boolean }) {
   return (
-    <div role="radiogroup" className={cx('inline-flex items-center h-9 p-0.5 rounded-md bg-muted', className)}>
+    <div role="radiogroup" className={cx('items-center h-9 p-0.5 rounded-md bg-muted', block ? 'flex w-full' : 'inline-flex', className)}>
       {options.map(o => (
-        <button key={o.value} role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={cx('t h-8 px-3 rounded-[6px] text-sm whitespace-nowrap', value === o.value ? 'bg-card text-foreground shadow-[var(--shadow-button)]' : 'text-muted-foreground hover:text-foreground')}>
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
+          className={cx('t h-8 px-3 rounded-[6px] text-sm whitespace-nowrap', block && 'flex-1 min-w-0 truncate', value === o.value ? 'bg-card text-foreground shadow-[var(--shadow-pill)]' : 'text-muted-foreground hover:text-foreground')}>
           {o.label}
         </button>
       ))}
     </div>
   )
 }
-/** Chip: 12/450, muted bg, radius 6. `tone="gold"` = outlined gold (Mochi "Free Trial" badge). */
-export function Chip({ children, tone = 'muted', className }: { children: React.ReactNode; tone?: 'muted' | 'gold' | 'good' | 'bad' | 'warn'; className?: string }) {
+/** Chip: 12px label, radius 6. `outline` is the neutral bordered state badge.
+ *  `lifetime` is gold and belongs to the Lifetime Access badge only. */
+export function Chip({ children, tone = 'muted', className }: { children: React.ReactNode; tone?: 'muted' | 'outline' | 'lifetime' | 'good' | 'bad' | 'warn'; className?: string }) {
   const t = {
     muted: 'bg-muted text-muted-foreground',
-    gold: 'bg-gold-soft text-gold-ink shadow-[inset_0_0_0_1px_var(--gold)]',
+    outline: 'text-foreground shadow-[inset_0_0_0_1px_var(--border)]',
+    lifetime: 'bg-gold-soft text-gold-ink shadow-[inset_0_0_0_1px_var(--gold)]',
     good: 'bg-success-soft text-success',
     bad: 'bg-destructive-soft text-destructive',
     warn: 'bg-warn-soft text-warn',
   }[tone]
   return <span className={cx('inline-flex items-center h-5 px-1.5 rounded-sm text-xs font-medium whitespace-nowrap', t, className)}>{children}</span>
 }
-/** iOS-like switch, 32x20. */
+/** Switch, 32x20. On is near-black. */
 export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
-    <button role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={cx('t relative h-5 w-8 rounded-full shrink-0', checked ? 'bg-gold' : 'bg-muted-2')}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={cx('t relative h-5 w-8 rounded-full shrink-0', checked ? 'bg-primary' : 'bg-muted-2')}>
       <span className={cx('t absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-[0_1px_2px_rgba(0,0,0,.25)]', checked ? 'left-[14px]' : 'left-0.5')} />
     </button>
+  )
+}
+/** Progress bar: grey track, near-black fill. `tone` colours it only to warn (close to or over a limit); `color` is for category bars. */
+export function ProgressBar({ value, tone, color, className }: { value: number; tone?: 'warn' | 'bad' | 'good'; color?: string; className?: string }) {
+  const fill = tone === 'bad' ? 'bg-destructive' : tone === 'warn' ? 'bg-warn' : tone === 'good' ? 'bg-success' : 'bg-primary'
+  const pct = Math.max(0, Math.min(100, value))
+  return (
+    <div role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} className={cx('h-1.5 rounded-full bg-muted-2/70 overflow-hidden', className)}>
+      <div className={cx('t h-full rounded-full', !color && fill)} style={{ width: `${pct}%`, background: color }} />
+    </div>
   )
 }
 
@@ -187,16 +245,16 @@ export function Menu({ trigger, children, align = 'end', className }: { trigger:
   const ref = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     if (!open) return
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    const onDown = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDown); window.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey) }
+    document.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey) }
   }, [open])
   return (
     <div ref={ref} className={cx('relative inline-block', className)}>
       <div onClick={() => setOpen(o => !o)}>{trigger(open)}</div>
       {open && (
-        <div className={cx('absolute z-40 mt-2 min-w-[180px] rounded-xl bg-card p-1 shadow-[var(--shadow-popover)] animate-[dialogIn_.15s_var(--ease-standard)] origin-top', align === 'end' ? 'right-0' : 'left-0')}>
+        <div role="menu" className={cx('absolute z-40 mt-1.5 min-w-[180px] max-h-[60vh] overflow-y-auto rounded-xl bg-card p-1 shadow-[var(--shadow-popover)] animate-[dialogIn_.12s_var(--ease-standard)]', align === 'end' ? 'right-0 origin-top-right' : 'left-0 origin-top-left')}>
           {children(() => setOpen(false))}
         </div>
       )}
@@ -205,12 +263,12 @@ export function Menu({ trigger, children, align = 'end', className }: { trigger:
 }
 export function MenuItem({ selected, className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
   return (
-    <button className={cx('t w-full text-left h-8 px-2 rounded-md text-sm flex items-center gap-2 hover:bg-muted [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-muted-foreground', selected ? 'bg-muted text-foreground' : 'text-foreground', className)} {...rest}>{children}</button>
+    <button type="button" role="menuitem" className={cx('t w-full text-left h-8 px-2 rounded-md text-sm flex items-center gap-2 whitespace-nowrap hover:bg-muted [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-muted-foreground', selected ? 'bg-muted text-foreground' : 'text-foreground', className)} {...rest}>{children}</button>
   )
 }
 
 /* ---------- Dialog / Sheet ---------- */
-/** Centered dialog (radius 16, dialog shadow, 150ms scale-in); bottom sheet below 640px. */
+/** Centered dialog (radius 16, 150ms scale-in); a bottom sheet with a grab handle below 640px. */
 export function Dialog({ open, onClose, title, description, children, width = 480 }: { open: boolean; onClose: () => void; title?: React.ReactNode; description?: React.ReactNode; children: React.ReactNode; width?: number }) {
   React.useEffect(() => {
     if (!open) return
@@ -223,22 +281,44 @@ export function Dialog({ open, onClose, title, description, children, width = 48
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 animate-[fadeIn_.15s]" onClick={onClose} />
-      <div className="relative w-full max-h-[92vh] overflow-y-auto bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] animate-[sheetUp_.2s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
+      <div className="relative w-full max-h-[92dvh] overflow-y-auto overscroll-contain bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] pb-[env(safe-area-inset-bottom)] animate-[sheetUp_.18s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
+        <div className="sm:hidden mx-auto mt-2 h-1 w-9 rounded-full bg-muted-2" aria-hidden />
         {(title || description) && (
-          <div className="px-6 pt-6">
+          <div className="px-5 sm:px-6 pt-4 sm:pt-6">
             {title && <h2 className="text-lg text-foreground">{title}</h2>}
-            {description && <p className="text-sm text-muted-foreground mt-2 leading-5">{description}</p>}
+            {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="p-5 sm:p-6">{children}</div>
       </div>
     </div>
   )
 }
 export const Sheet = Dialog
 
+/* ---------- Toast ---------- */
+/** The one toast of the app, fed by `useUI().showToast`. Sits above the phone bottom bar. An action (Undo) keeps it up longer. */
+export function Toaster() {
+  const toast = useUI(s => s.toast)
+  const dismiss = useUI(s => s.dismissToast)
+  if (!toast) return null
+  return (
+    <div role="status" aria-live="polite" className={cx(
+      'fixed z-[60] left-1/2 bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-6 max-w-[calc(100vw-32px)] min-h-10 pl-3.5 pr-1.5 py-1.5 rounded-lg text-sm flex items-center gap-2 shadow-[0_8px_24px_rgba(0,0,0,.18)] animate-[toastIn_.15s_var(--ease-standard)_both]',
+      toast.kind === 'err' ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground',
+    )}>
+      <span className="truncate pr-2">{toast.msg}</span>
+      {toast.action && (
+        <button type="button" onClick={() => { toast.action!.run(); dismiss() }} className="t h-7 px-2.5 rounded-md text-sm font-semibold bg-[color-mix(in_oklab,var(--primary-foreground)_16%,transparent)] hover:bg-[color-mix(in_oklab,var(--primary-foreground)_26%,transparent)]">
+          {toast.action.label}
+        </button>
+      )}
+    </div>
+  )
+}
+
 /* ---------- Misc ---------- */
-export function ProgressRing({ value, size = 160, stroke = 10, color, track, children }: { value: number; size?: number; stroke?: number; color: string; track?: string; children?: React.ReactNode }) {
+export function ProgressRing({ value, size = 160, stroke = 10, color = 'var(--primary)', track, children }: { value: number; size?: number; stroke?: number; color?: string; track?: string; children?: React.ReactNode }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const pct = Math.max(0, Math.min(100, value))
@@ -246,24 +326,24 @@ export function ProgressRing({ value, size = 160, stroke = 10, color, track, chi
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} stroke={track ?? 'var(--muted)'} strokeWidth={stroke} fill="none" />
-        <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c - (c * pct) / 100} style={{ transition: 'stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1)' }} />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c - (c * pct) / 100} style={{ transition: 'stroke-dashoffset .3s cubic-bezier(.4,0,.2,1)' }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
     </div>
   )
 }
-/** Mochi empty state: "It's empty here", muted line, optional primary action. */
+/** Empty state: small grey sketch, one line of what is missing, one action. */
 export function Empty({ title = "It's empty here", text, action, className }: { icon?: string; title?: string; text?: string; action?: React.ReactNode; className?: string }) {
   return (
-    <div className={cx('flex flex-col items-center text-center py-16 px-12', className)}>
-      <div className="h-[50px] w-[84px] rounded-lg bg-muted mb-8 relative overflow-hidden">
+    <div className={cx('flex flex-col items-center text-center py-12 px-6', className)}>
+      <div className="h-[50px] w-[84px] rounded-lg bg-muted mb-6 relative overflow-hidden" aria-hidden>
         <div className="absolute left-3 top-3 h-1.5 w-10 rounded-full bg-muted-2" />
         <div className="absolute left-3 top-6 h-1.5 w-16 rounded-full bg-muted-2" />
         <div className="absolute left-3 top-9 h-1.5 w-6 rounded-full bg-muted-2" />
       </div>
       <div className="text-sm text-foreground">{title}</div>
-      {text && <p className="text-sm text-muted-foreground mt-3 leading-6 max-w-xs">{text}</p>}
-      {action && <div className="mt-6">{action}</div>}
+      {text && <p className="text-sm text-muted-foreground mt-1 max-w-xs">{text}</p>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }

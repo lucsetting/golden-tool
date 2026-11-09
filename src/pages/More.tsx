@@ -23,12 +23,12 @@ export default function More() {
           const on = hasModule(settings, m.kind)
           return (
             <button key={m.kind} onClick={() => setTab(m.kind)} className={row}>
-              <span className={cx('h-6 w-6 shrink-0 rounded-md inline-flex items-center justify-center', on ? 'bg-gold-soft text-gold-ink' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></span>
+              <span className={cx('h-6 w-6 shrink-0 rounded-md inline-flex items-center justify-center', on ? 'bg-muted-2 text-foreground' : 'bg-muted text-muted-foreground')}><Icon className="h-3.5 w-3.5" /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-foreground truncate">{m.name}</span>
                 <span className="block text-xs text-muted-foreground mt-1 truncate">{on ? m.tagline.split(/[,.]/)[0] : `${m.price} · Not in your plan`}</span>
               </span>
-              <Chip tone={on ? 'gold' : 'muted'}>{on ? 'Active' : 'Locked'}</Chip>
+              <Chip tone={on ? 'outline' : 'muted'}>{on ? 'Active' : 'Locked'}</Chip>
               <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
             </button>
           )

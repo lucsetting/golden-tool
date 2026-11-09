@@ -1,7 +1,7 @@
 // Activation codes: PREFIX-XXXX-YYYY where YYYY = checksum(PREFIX + XXXX).
 // Prefix says what the code unlocks. ponytail: client-side check only; move to a server check if piracy matters.
 // Set VITE_LICENSE_SECRET at build time (GitHub Actions secret LICENSE_SECRET); gen-keys.mjs must use the same value.
-const SECRET = (import.meta.env.VITE_LICENSE_SECRET as string | undefined) ?? 'golden-tool-2026'
+const SECRET = (import.meta.env?.VITE_LICENSE_SECRET as string | undefined) ?? 'golden-tool-2026'
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export type KeyKind = 'all' | 'debts' | 'goals' | 'reports' | 'lifetime'

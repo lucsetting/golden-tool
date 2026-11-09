@@ -1,5 +1,5 @@
 import { useStore } from '../../store'
-import { Card, CardHeader, CategoryBadge, Metric, MetricTray } from '../ui'
+import { Card, CardHeader, CategoryBadge, Metric, MetricTray, ProgressBar } from '../ui'
 import MonthBars from './MonthBars'
 import { byCategory, expensesForMonth, total } from '../../lib/calc'
 import { fmt, monthLabel } from '../../lib/money'
@@ -22,7 +22,7 @@ export default function Reports({ year }: { year: string }) {
 
   return (
     <div className="space-y-4">
-      <MetricTray className="sm:grid-cols-3">
+      <MetricTray>
         <Metric label="Year total" value={f0(sum)} />
         <Metric label="Monthly average" value={f0(active.length ? sum / active.length : 0)} sub={active.length ? `Over ${active.length} month${active.length === 1 ? '' : 's'} with spending` : undefined} />
         <Metric label="Best month" value={best ? monthLabel(`${year}-${String(bestIdx + 1).padStart(2, '0')}`, 'long').replace(/ \d+$/, '') : '-'} sub={best ? f0(best.value) : undefined} />
@@ -37,7 +37,7 @@ export default function Reports({ year }: { year: string }) {
           <div key={s.category.id} className="h-14 px-4 flex items-center gap-3 border-b border-border last:border-b-0">
             <CategoryBadge category={s.category} size={24} />
             <span className="flex-1 min-w-0 truncate text-sm">{s.category.name}</span>
-            <div className="hidden sm:block w-24 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-gold" style={{ width: `${s.pct}%` }} /></div>
+            <ProgressBar value={s.pct} className="hidden sm:block w-24" />
             <span className="w-24 text-right text-sm tabular-nums">{fmt(s.amount, currency)}</span>
             <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{Math.round(s.pct)}%</span>
           </div>

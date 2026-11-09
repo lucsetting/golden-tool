@@ -38,9 +38,13 @@ interface UIState {
   sheet: { open: boolean; editingId?: string }
   openSheet: (editingId?: string) => void
   closeSheet: () => void
-  toast?: { msg: string; kind?: 'ok' | 'err' }
-  showToast: (msg: string, kind?: 'ok' | 'err') => void
+  /** `action` adds a button to the toast (Undo); the toast then stays up longer. */
+  toast?: { msg: string; kind?: 'ok' | 'err'; action?: ToastAction }
+  showToast: (msg: string, kind?: 'ok' | 'err', action?: ToastAction) => void
+  dismissToast: () => void
 }
+export interface ToastAction { label: string; run: () => void }
+let toastTimer: ReturnType<typeof setTimeout> | undefined
 
 export const useUI = create<UIState>()(set => ({
   tab: 'home',
@@ -50,8 +54,10 @@ export const useUI = create<UIState>()(set => ({
   sheet: { open: false },
   openSheet: editingId => set({ sheet: { open: true, editingId } }),
   closeSheet: () => set({ sheet: { open: false } }),
-  showToast: (msg, kind = 'ok') => {
-    set({ toast: { msg, kind } })
-    setTimeout(() => set({ toast: undefined }), 2400)
+  showToast: (msg, kind = 'ok', action) => {
+    clearTimeout(toastTimer)
+    set({ toast: { msg, kind, action } })
+    toastTimer = setTimeout(() => set({ toast: undefined }), action ? 6000 : 2400)
   },
+  dismissToast: () => { clearTimeout(toastTimer); set({ toast: undefined }) },
 }))

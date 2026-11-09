@@ -6,7 +6,7 @@ type Pt = ReturnType<typeof dailyCumulative>[number]
 
 export const tipStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--foreground)', fontSize: 12, boxShadow: 'var(--shadow-popover)' }
 
-/** Hero curve: gold spent area + dashed ideal line, no axes; first/last day labels sit on a bottom hairline. */
+/** Hero curve: spent area + dashed ideal line, no axes; first/last day labels sit on a bottom hairline. */
 export default function SpendCurve({ data, currency, showIdeal, monthName }: { data: Pt[]; currency: string; showIdeal: boolean; monthName: string }) {
   const tip = ({ active, payload }: TooltipContentProps) => {
     if (!active || !payload?.length) return null
@@ -25,13 +25,13 @@ export default function SpendCurve({ data, currency, showIdeal, monthName }: { d
         <AreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="spentFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.28} />
-              <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--chart)" stopOpacity={0.16} />
+              <stop offset="100%" stopColor="var(--chart)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <Tooltip content={tip} cursor={{ stroke: 'var(--border)' }} />
           {showIdeal && <Area type="linear" dataKey="ideal" stroke="var(--muted-foreground)" strokeOpacity={0.5} strokeWidth={1} strokeDasharray="4 4" fill="none" dot={false} activeDot={false} isAnimationActive={false} />}
-          <Area type="monotone" dataKey="spent" stroke="var(--gold)" strokeWidth={2} fill="url(#spentFill)" dot={false} activeDot={{ r: 4, fill: 'var(--gold)', stroke: 'var(--card)' }} connectNulls={false} isAnimationActive={false} />
+          <Area type="monotone" dataKey="spent" stroke="var(--chart)" strokeWidth={2} fill="url(#spentFill)" dot={false} activeDot={{ r: 4, fill: 'var(--chart)', stroke: 'var(--card)' }} connectNulls={false} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-x-3 bottom-2 flex justify-between text-xs text-muted-foreground">

@@ -58,7 +58,7 @@ export default function Reports() {
     <>
       <PageHeader title="Budgets" subtitle="A cap per category. The bar turns red before you overspend." />
       <div className="space-y-4">
-        <MetricTray className="sm:grid-cols-3">
+        <MetricTray>
           <Metric label="Categories over" value={over} tone={over ? 'bad' : undefined} />
           <Metric label="Budgeted total" value={f0(budgetTotal)} />
           <Metric label="Spent in budgeted" value={f0(spentIn)} />

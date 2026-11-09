@@ -15,7 +15,7 @@ export default function Locked({ module, icon, subtitle, children }: { module: M
       <PageHeader title={module.name} subtitle={subtitle} />
       <section className="rounded-2xl bg-card border border-border p-4 mb-6">
         <div className="flex items-center justify-between gap-4">
-          <span className="h-9 w-9 rounded-full bg-gold-soft text-gold-ink inline-flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+          <span className="h-9 w-9 rounded-full bg-muted text-foreground inline-flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="primary" onClick={() => window.open(module.checkoutUrl, '_blank', 'noopener')}><ArrowTopRightOnSquareIcon /><span>Add to my plan</span></Button>
             <Button size="sm" open={code} onClick={() => setCode(v => !v)}>Enter code</Button>
