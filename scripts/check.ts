@@ -33,4 +33,18 @@ const p = payoffPlan([{ id: 'd', name: 'd', balance: 1000, apr: 0, minPayment: 1
 assert.equal(p.months, 10); assert.equal(p.interestPaid, 0)
 const p2 = payoffPlan([{ id: 'd', name: 'd', balance: 1000, apr: 24, minPayment: 50 }], 100, 'avalanche')
 assert.ok(p2.months < 10 && p2.interestPaid > 0)
+// delete with undo restores the item at the same position
+{
+  const { useStore } = await import('../src/store')
+  const { useUI } = await import('../src/ui-state')
+  const { deleteWithUndo } = await import('../src/lib/undo')
+  const mk = (id: string) => ({ id, amount: 1, categoryId: 'other', name: id, date: '2026-01-01', createdAt: 0 })
+  useStore.setState({ expenses: [mk('a'), mk('b'), mk('c')] })
+  deleteWithUndo('expenses', 'b')
+  assert.deepEqual(useStore.getState().expenses.map(e => e.id), ['a', 'c'])
+  useUI.getState().toast!.action!.run()
+  assert.deepEqual(useStore.getState().expenses.map(e => e.id), ['a', 'b', 'c'])
+  useUI.getState().dismissToast()
+}
+
 console.log('check OK')
