@@ -36,7 +36,6 @@ export interface State {
   // expenses
   addExpense: (e: Omit<Expense, 'id' | 'createdAt'>) => Expense
   updateExpense: (id: string, patch: Partial<Omit<Expense, 'id'>>) => void
-  deleteExpense: (id: string) => void
   // categories
   addCategory: (c: Omit<Category, 'id'>) => Category
   updateCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) => void
@@ -44,15 +43,12 @@ export interface State {
   // recurring
   addRecurring: (r: Omit<Recurring, 'id'>) => Recurring
   updateRecurring: (id: string, patch: Partial<Omit<Recurring, 'id'>>) => void
-  deleteRecurring: (id: string) => void
   applyRecurring: (mk?: string) => void // idempotent per month
   // pro
   addGoal: (g: Omit<Goal, 'id'>) => Goal
   updateGoal: (id: string, patch: Partial<Omit<Goal, 'id'>>) => void
-  deleteGoal: (id: string) => void
   addDebt: (d: Omit<Debt, 'id'>) => Debt
   updateDebt: (id: string, patch: Partial<Omit<Debt, 'id'>>) => void
-  deleteDebt: (id: string) => void
   // data
   exportJSON: () => string
   importJSON: (json: string) => boolean
@@ -95,7 +91,6 @@ export const useStore = create<State>()(
         return exp
       },
       updateExpense: (id, patch) => set(s => ({ expenses: s.expenses.map(e => (e.id === id ? { ...e, ...patch } : e)) })),
-      deleteExpense: id => set(s => ({ expenses: s.expenses.filter(e => e.id !== id) })),
 
       addCategory: c => {
         const cat: Category = { ...c, id: uid() }
@@ -116,7 +111,6 @@ export const useStore = create<State>()(
         return rec
       },
       updateRecurring: (id, patch) => set(s => ({ recurring: s.recurring.map(r => (r.id === id ? { ...r, ...patch } : r)) })),
-      deleteRecurring: id => set(s => ({ recurring: s.recurring.filter(r => r.id !== id) })),
       applyRecurring: (mk = currentMonthKey()) => {
         const s = get()
         const dim = daysInMonth(mk)
@@ -136,10 +130,8 @@ export const useStore = create<State>()(
 
       addGoal: g => { const goal: Goal = { ...g, id: uid() }; set(s => ({ goals: [...s.goals, goal] })); return goal },
       updateGoal: (id, patch) => set(s => ({ goals: s.goals.map(g => (g.id === id ? { ...g, ...patch } : g)) })),
-      deleteGoal: id => set(s => ({ goals: s.goals.filter(g => g.id !== id) })),
       addDebt: d => { const debt: Debt = { ...d, id: uid() }; set(s => ({ debts: [...s.debts, debt] })); return debt },
       updateDebt: (id, patch) => set(s => ({ debts: s.debts.map(d => (d.id === id ? { ...d, ...patch } : d)) })),
-      deleteDebt: id => set(s => ({ debts: s.debts.filter(d => d.id !== id) })),
 
       exportJSON: () => {
         const { settings, categories, expenses, recurring, goals, debts, recurringApplied } = get()

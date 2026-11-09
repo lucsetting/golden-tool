@@ -77,7 +77,7 @@ function GoalRow({ g, currency, onEdit }: { g: Goal; currency: string; onEdit: (
       <div className="flex items-center gap-1 max-xl:mt-2 max-sm:-mr-2 xl:w-60 xl:justify-end">
         {adding ? (
           <>
-            <Input autoFocus type="number" inputMode="decimal" aria-label={`Contribution to ${g.name}`} className="h-8 w-28!" value={amt} onChange={e => setAmt(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Amount" />
+            <Input autoFocus type="number" inputMode="decimal" aria-label={`Contribution to ${g.name}`} className="sm:h-8 w-28!" value={amt} onChange={e => setAmt(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Amount" />
             <Button size="sm" variant="primary" className="max-sm:px-4" onClick={add}>Add</Button>
           </>
         ) : (

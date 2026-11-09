@@ -45,8 +45,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const section = sectionOf(tab)
   const items = SECTION_TABS[section]
   const resolvedDark = settings.theme === 'dark' || (settings.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
-  const isModule = section === 'debts' || section === 'goals' || section === 'reports'
-  const sectionLocked = isModule && !hasModule(settings, section)
+  const isAddon = section === 'debts' || section === 'goals' || section === 'reports'
+  const sectionLocked = isAddon && !hasModule(settings, section)
   const left = daysLeft(settings)
   const readOnly = isReadOnly(settings)
   const lifetime = isLifetime(settings)
@@ -88,8 +88,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className="hidden lg:flex w-[228px] shrink-0 flex-col px-3 pt-[22px] pb-3">
         <div className="h-[22px] px-2 flex items-center gap-2 min-w-0">
           <span className="text-sm font-medium text-foreground truncate">{SECTION_TITLE[section]}</span>
-          {section === 'dashboard' && lifetime && <Chip tone="lifetime">Lifetime</Chip>}
-          {isModule && <Chip tone={sectionLocked ? 'muted' : 'outline'} className={sectionLocked ? 'bg-muted-2/60' : undefined}>{sectionLocked ? 'Locked' : 'Active'}</Chip>}
+          {section === 'dashboard' && lifetime && <Chip tone="lifetime">Lifetime Access</Chip>}
+          {isAddon && <Chip tone={sectionLocked ? 'muted' : 'outline'} className={sectionLocked ? 'bg-muted-2/60' : undefined}>{sectionLocked ? 'Locked' : 'Active'}</Chip>}
         </div>
         <nav aria-label={SECTION_TITLE[section]} className="mt-6 flex flex-col gap-1">
           {items.map(({ tab: t, label }) => {
@@ -119,7 +119,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Content panel: white, 4px from the window edge on desktop */}
       <main className="flex-1 min-w-0 lg:p-1 lg:pl-0">
-        <div ref={scroller} className="h-full bg-card lg:rounded-lg lg:border lg:border-border overflow-y-auto overscroll-contain">
+        <div ref={scroller} className="h-full bg-card lg:rounded-md lg:border lg:border-border overflow-y-auto overscroll-contain">
           {/* Top bar: quick search left, account right. */}
           <div className="h-14 px-4 sm:px-6 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">

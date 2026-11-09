@@ -51,12 +51,13 @@ export default function Activity() {
     const s = q.trim().toLowerCase()
     const d = new Date(); d.setDate(d.getDate() - 6)
     const weekStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const l = all.filter(e =>
+    // Last 7 days ignores the month on screen: on the 3rd it still reaches back into the previous month.
+    const l = (scope === 'week' ? expenses.filter(e => e.date >= weekStart) : all).filter(e =>
       (activeCat === 'all' || e.categoryId === activeCat) &&
-      (scope === 'all' || (scope === 'week' ? e.date >= weekStart : !!e.recurringId)) &&
+      (scope !== 'bills' || !!e.recurringId) &&
       (!s || e.name.toLowerCase().includes(s) || (e.note ?? '').toLowerCase().includes(s)))
     return [...l].sort((a, b) => sort === 'amount' ? b.amount - a.amount : b.date.localeCompare(a.date) || b.createdAt - a.createdAt)
-  }, [all, q, activeCat, scope, sort])
+  }, [all, expenses, q, activeCat, scope, sort])
 
   // Long lists render in chunks: the first 60 rows, then 60 more each time the last line scrolls into view.
   const [page, setPage] = useState({ list, n: CHUNK })

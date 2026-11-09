@@ -1,20 +1,18 @@
 import { useMemo } from 'react'
-import { CalendarDaysIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
 import { hasModule } from '../lib/access'
 import { MODULES } from '../lib/modules'
-import { paymentSchedule } from '../lib/calc'
-import { currentMonthKey, fmt, monthLabel, shiftMonth } from '../lib/money'
+import { MAX_MONTHS, paymentSchedule } from '../lib/calc'
+import { fmt, monthAhead } from '../lib/money'
 import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, Metric, MetricTray, PageHeader, TableHead } from '../components/ui'
 import Locked from '../components/Locked'
 import DebtPlanner from '../components/pro/DebtPlanner'
 import { useDebtPrefs } from '../components/debts/prefs'
 
 const MAX_ROWS = 120
-const monthAhead = (n: number) => monthLabel(shiftMonth(currentMonthKey(), n), 'short')
 
-function Payments() {
+function MonthByMonth() {
   const debts = useStore(s => s.debts)
   const currency = useStore(s => s.settings.currency)
   const extra = useDebtPrefs(s => s.extra)
@@ -31,17 +29,17 @@ function Payments() {
   )
 
   if (debts.length === 0) {
-    return <Card><Empty title="No debts yet" text="The payments appear here once the payoff plan has at least one debt." action={<Button variant="primary" className="max-sm:px-4" onClick={() => useUI.getState().setTab('debts')}>Open payoff plan</Button>} /></Card>
+    return <Card><Empty title="No debts yet" text="The months appear here once the payoff plan has at least one debt." action={<Button variant="primary" className="max-sm:px-4" onClick={() => useUI.getState().setTab('debts')}>Open payoff plan</Button>} /></Card>
   }
   return (
     <div className="space-y-6">
       <MetricTray>
         <Metric label="First month" value={<AnimatedNumber value={rows[0]?.total ?? 0} format={f} />} sub={monthAhead(1)} />
-        <Metric label="Total to pay" value={<AnimatedNumber value={sum} format={f} />} sub={`${rows.length} payment${rows.length === 1 ? '' : 's'}`} />
-        <Metric label="Last payment" tone={rows.length >= 600 ? 'bad' : undefined} value={rows.length >= 600 ? 'Not reached' : monthAhead(rows.length)} sub={rows.length >= 600 ? 'Payments do not cover the interest' : `In ${rows.length} month${rows.length === 1 ? '' : 's'}`} />
+        <Metric label="Total to pay" value={<AnimatedNumber value={sum} format={f} />} sub={`Over ${rows.length} month${rows.length === 1 ? '' : 's'}`} />
+        <Metric label="Last month" tone={rows.length >= MAX_MONTHS ? 'bad' : undefined} value={rows.length >= MAX_MONTHS ? 'Not reached' : monthAhead(rows.length)} sub={rows.length >= MAX_MONTHS ? 'Payments do not cover the interest' : `In ${rows.length} month${rows.length === 1 ? '' : 's'}`} />
       </MetricTray>
       <Card>
-        <CardHeader title="Payments" icon={<CalendarDaysIcon className="h-4 w-4 text-muted-foreground shrink-0" />}
+        <CardHeader title="Month by month"
           right={<span className="text-xs text-muted-foreground">{method === 'avalanche' ? 'Avalanche' : 'Snowball'}{extra > 0 && ` · ${f(extra)} extra`}</span>} />
         <div className="max-md:hidden overflow-x-auto">
           <div className="min-w-fit tabular-nums">
@@ -81,11 +79,11 @@ function Payments() {
 export default function Debts() {
   const byMonth = useUI(s => s.tab === 'debts-schedule')
   const unlocked = useStore(s => hasModule(s.settings, 'debts'))
-  const body = byMonth ? <Payments /> : <DebtPlanner />
+  const body = byMonth ? <MonthByMonth /> : <DebtPlanner />
   return (
     <>
       {byMonth
-        ? <PageHeader title="Payments by month" subtitle="Every payment of the payoff plan, until the last one." />
+        ? <PageHeader title="Month by month" subtitle="What the payoff plan pays each month, until the last one." />
         : <PageHeader title="Payoff plan" subtitle="Snowball pays the smallest balance first. Avalanche pays the highest rate first." />}
       {unlocked ? body : <Locked module={MODULES.debts}>{body}</Locked>}
     </>

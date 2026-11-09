@@ -53,3 +53,5 @@ export function dateLabel(iso: string): string {
   if (iso === `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`) return 'Yesterday'
   return dateFmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(dt)
 }
+/** Short label of the month `n` months from now. */
+export const monthAhead = (n: number) => monthLabel(shiftMonth(currentMonthKey(), n), 'short')

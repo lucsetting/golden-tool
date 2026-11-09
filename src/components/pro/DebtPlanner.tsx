@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../../store'
 import { AnimatedNumber, Button, Card, CardHeader, Dialog, Empty, Field, IconButton, Input, Metric, MetricTray, Segmented, TableHead, TableRow } from '../ui'
-import { currentMonthKey, fmt, monthLabel, shiftMonth } from '../../lib/money'
-import { payoffPlan } from '../../lib/calc'
+import { fmt, monthAhead } from '../../lib/money'
+import { MAX_MONTHS, payoffPlan } from '../../lib/calc'
 import { deleteWithUndo } from '../../lib/undo'
 import { useDebtPrefs } from '../debts/prefs'
 import type { Debt } from '../../types'
 
-const monthAhead = (n: number) => monthLabel(shiftMonth(currentMonthKey(), n), 'short')
 
 function DebtForm({ debt, onClose }: { debt?: Debt; onClose: () => void }) {
   const { addDebt, updateDebt } = useStore.getState()
@@ -46,7 +45,7 @@ export default function DebtPlanner() {
   const [sheet, setSheet] = useState<{ debt?: Debt } | null>(null)
   const plan = useMemo(() => payoffPlan(debts, extra, method), [debts, extra, method])
   const base = useMemo(() => payoffPlan(debts, 0, method), [debts, method])
-  const capped = plan.months >= 600
+  const capped = plan.months >= MAX_MONTHS
   const saved = Math.max(0, base.interestPaid - plan.interestPaid)
   const owed = debts.reduce((s, d) => s + d.balance, 0)
   const f = (n: number) => fmt(n, currency)

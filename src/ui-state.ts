@@ -21,7 +21,7 @@ export function sectionOf(tab: Tab): Section {
 }
 export const SECTION_TABS: Record<Section, { tab: Tab; label: string }[]> = {
   dashboard: [{ tab: 'home', label: 'Home' }, { tab: 'activity', label: 'Activity' }, { tab: 'insights', label: 'Insights' }, { tab: 'refund', label: 'Refund' }],
-  debts: [{ tab: 'debts', label: 'Payoff plan' }, { tab: 'debts-schedule', label: 'Payments' }],
+  debts: [{ tab: 'debts', label: 'Payoff plan' }, { tab: 'debts-schedule', label: 'Month by month' }],
   goals: [{ tab: 'goals', label: 'Goals' }, { tab: 'goals-emergency', label: 'Emergency fund' }],
   reports: [{ tab: 'reports', label: 'Budgets' }, { tab: 'reports-yearly', label: 'Yearly report' }, { tab: 'reports-export', label: 'Export' }],
   settings: [{ tab: 'settings', label: 'General' }, { tab: 'settings-categories', label: 'Categories' }, { tab: 'settings-recurring', label: 'Bills' }, { tab: 'settings-data', label: 'Data' }, { tab: 'settings-billing', label: 'Billing' }, { tab: 'settings-refund', label: 'Refund' }],

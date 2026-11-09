@@ -84,7 +84,7 @@ export function dailyCumulative(expenses: Expense[], mk: string, limit: number, 
     perDay[i] += e.amount
     if (e.recurringId) bills[i] += e.amount
   }
-  for (const r of billsDue(expenses, mk, recurring)) bills[Math.min(r.dayOfMonth, dim) - 1] += r.amount
+  for (const r of billsDue(expenses, mk, recurring)) bills[Math.max(1, Math.min(r.dayOfMonth || 1, dim)) - 1] += r.amount
   const rest = Math.max(0, limit - total(bills.map(amount => ({ amount }))))
   const cur = currentMonthKey()
   const lastDay = mk === cur ? Number(todayISO().slice(8, 10)) : mk < cur ? dim : 0
@@ -103,6 +103,8 @@ export function monthlyHistory(expenses: Expense[], n = 6, endMk = currentMonthK
   })
 }
 
+/** A plan that is not paid off after this many months never will be: the payments do not cover the interest. */
+export const MAX_MONTHS = 600
 /** Debt payoff schedule (snowball = smallest balance first, avalanche = highest APR first). */
 export interface DebtLike { id: string; name: string; balance: number; apr: number; minPayment: number }
 export function payoffPlan(debts: DebtLike[], extraPerMonth: number, method: 'snowball' | 'avalanche') {
@@ -110,7 +112,7 @@ export function payoffPlan(debts: DebtLike[], extraPerMonth: number, method: 'sn
   const bal = new Map(order.map(d => [d.id, d.balance]))
   let months = 0, interestPaid = 0
   const payoffMonth = new Map<string, number>()
-  while ([...bal.values()].some(b => b > 0.005) && months < 600) {
+  while ([...bal.values()].some(b => b > 0.005) && months < MAX_MONTHS) {
     months++
     let extra = extraPerMonth
     for (const d of order) {
@@ -139,7 +141,7 @@ export function paymentSchedule(debts: DebtLike[], extraPerMonth: number, method
   const order = [...debts].sort((a, b) => method === 'snowball' ? a.balance - b.balance : b.apr - a.apr)
   const bal = new Map(order.map(d => [d.id, d.balance]))
   const rows: ScheduleRow[] = []
-  while ([...bal.values()].some(b => b > 0.005) && rows.length < 600) {
+  while ([...bal.values()].some(b => b > 0.005) && rows.length < MAX_MONTHS) {
     let extra = extraPerMonth
     const pays: Record<string, number> = {}, paidOff: string[] = []
     for (const d of order) {

@@ -73,7 +73,7 @@ function Palette({ onClose }: { onClose: () => void }) {
           {items.length === 0 && <li className="px-3 py-6 text-sm text-muted-foreground text-center">Nothing matches.</li>}
           {items.map((it, idx) => (
             <li key={it.id}>
-              <button onMouseEnter={() => setI(idx)} onClick={it.run} className={cx('t w-full h-10 px-3 rounded-lg flex items-center gap-3 text-left text-sm', idx === i ? 'bg-muted text-foreground' : 'text-foreground')}>
+              <button onMouseEnter={() => setI(idx)} onClick={it.run} className={cx('t w-full h-11 sm:h-10 px-3 rounded-lg flex items-center gap-3 text-left text-sm', idx === i ? 'bg-muted text-foreground' : 'text-foreground')}>
                 {it.badge ? <CategoryBadge category={it.badge} size={20} /> : <span className="h-5 w-5 rounded-md bg-muted inline-flex items-center justify-center text-[10px] uppercase text-muted-foreground">{it.kind === 'page' ? 'P' : 'A'}</span>}
                 <span className="flex-1 truncate">{it.label}</span>
                 {it.sub && <span className="text-xs text-muted-foreground truncate max-w-[55%]">{it.sub}</span>}

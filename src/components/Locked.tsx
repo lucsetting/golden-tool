@@ -11,13 +11,13 @@ const INCLUDES: Record<ModuleKind, string[]> = {
     'One payoff plan for all your debts, with the month each one reaches zero',
     'Snowball and avalanche strategies, with the total interest of each',
     'An extra amount per month, with the interest it saves',
-    'Every payment listed month by month',
+    'What the plan pays each month, listed until the last one',
   ],
   goals: [
     'Goals with a target, an optional deadline and the amount to set aside per month',
     'Safe to save: what is left under your monthly limit this month',
     'An emergency fund target from your own essential expenses, for 3 or 6 months',
-    'Contributions recorded on each goal',
+    'Progress on each goal as you add contributions',
   ],
   reports: [
     'A budget for each category, with what is left or over this month',

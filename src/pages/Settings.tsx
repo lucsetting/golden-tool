@@ -25,7 +25,7 @@ const UNLOCKS: Record<KeyKind, string> = Object.fromEntries((Object.keys(KIND_UN
 // A button in a SettingRow: right-aligned on desktop, full width on phones.
 const ROW_BTN = 'max-sm:w-full sm:flex sm:w-fit sm:ml-auto'
 const SEP = 'max-sm:my-6'
-const toast = (msg: string, kind?: 'ok' | 'err') => useUI.getState().showToast(msg, kind)
+const toast: ReturnType<typeof useUI.getState>['showToast'] = (...a) => useUI.getState().showToast(...a)
 
 function General() {
   const monthlyLimit = useStore(s => s.settings.monthlyLimit)
@@ -78,9 +78,17 @@ function Categories() {
     toast('Category saved')
   }
   const remove = () => {
-    useStore.getState().deleteCategory(edit!.id!)
+    const id = edit!.id!, before = useStore.getState()
+    const index = before.categories.findIndex(c => c.id === id), cat = before.categories[index]
+    const moved = new Set([...before.expenses, ...before.recurring].filter(x => x.categoryId === id).map(x => x.id))
+    before.deleteCategory(id)
     setEdit(null)
-    toast('Category deleted')
+    // Undo puts the category back in its place and returns to it only what the delete moved to Other.
+    toast('Category deleted', 'ok', { label: 'Undo', run: () => useStore.setState(s => s.categories.some(c => c.id === id) ? {} : {
+      categories: [...s.categories.slice(0, index), cat, ...s.categories.slice(index)],
+      expenses: s.expenses.map(e => moved.has(e.id) ? { ...e, categoryId: id } : e),
+      recurring: s.recurring.map(r => moved.has(r.id) ? { ...r, categoryId: id } : r),
+    }) })
   }
   return (
     <div>
@@ -217,7 +225,7 @@ function Billing() {
     : ended ? `Included access ended ${untilText}. You can view and export; adding is paused.` : `Included access ends ${untilText} (${daysLeft(settings)} days).`
   return (
     <div>
-      <PageHeader title="Billing" subtitle="Your plan, add-ons and activation codes." />
+      <PageHeader title="Billing" subtitle="Your access, add-ons and activation codes." />
       {email && (<>
         <SettingRow label="Account" description={email}>
           <div className="flex gap-2 sm:justify-end">
@@ -231,7 +239,7 @@ function Billing() {
       <Card className="p-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Golden Tool</span>
-          <Chip tone={life ? 'lifetime' : ended ? 'bad' : 'outline'}>{life ? 'Lifetime' : ended ? 'Ended' : 'Active'}</Chip>
+          <Chip tone={life ? 'lifetime' : ended ? 'bad' : 'outline'}>{life ? 'Lifetime Access' : ended ? 'Ended' : 'Active'}</Chip>
           <span className="ml-auto text-sm text-muted-foreground">{life ? 'Lifetime' : `${ACCESS_DAYS} days included`}</span>
         </div>
         <p className="text-sm text-muted-foreground mt-2">{accessText}</p>
@@ -263,7 +271,7 @@ function Billing() {
               <span className="block font-mono text-foreground">{formatKey(k)}</span>
               <span className="block truncate text-xs text-muted-foreground">{UNLOCKS[kd]}</span>
             </span>
-            <IconButton label="Remove code" className="shrink-0" onClick={() => { useStore.getState().updateSettings({ keys: settings.keys.filter(x => x !== k) }); toast('Code removed') }}><TrashIcon /></IconButton>
+            <IconButton label="Remove code" className="shrink-0" onClick={() => { useStore.getState().updateSettings({ keys: settings.keys.filter(x => x !== k) }); toast('Code removed', 'ok', { label: 'Undo', run: () => { const now = useStore.getState().settings.keys; if (!now.includes(k)) useStore.getState().updateSettings({ keys: [...now, k] }) } }) }}><TrashIcon /></IconButton>
           </TableRow>
         ) })}
       </Card>

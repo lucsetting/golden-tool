@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChevronDownIcon, ChartPieIcon, ClockIcon, ListBulletIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, BuildingStorefrontIcon, ChartBarIcon, CreditCardIcon, FlagIcon, ShieldCheckIcon, DocumentTextIcon, ArrowDownTrayIcon, ArrowUturnLeftIcon, KeyIcon, BanknotesIcon, Squares2X2Icon } from '@heroicons/react/16/solid'
+import { ChevronDownIcon, ChartPieIcon, ClockIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, BuildingStorefrontIcon, ChartBarIcon, CreditCardIcon, FlagIcon, ShieldCheckIcon, DocumentTextIcon, ArrowDownTrayIcon, ArrowUturnLeftIcon, KeyIcon, BanknotesIcon, Squares2X2Icon } from '@heroicons/react/16/solid'
 import {
   ShoppingCart, Utensils, Car, Home, Zap, HeartPulse, ShoppingBag, Clapperboard, Repeat, Sparkles, GraduationCap, Circle,
   Coffee, Plane, Gift, Dumbbell, Gamepad2, Baby, PawPrint, Smartphone, Wrench, Shirt, Music, Briefcase,
@@ -38,8 +38,8 @@ export function Card({ className, children, ...rest }: React.HTMLAttributes<HTML
   return <div className={cx('rounded-xl bg-card border border-border overflow-hidden', className)} {...rest}>{children}</div>
 }
 const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  'Where it went': ChartPieIcon, Recent: ClockIcon, Transactions: ListBulletIcon, Bills: ArrowPathIcon, Payments: CalendarDaysIcon, 'Last 6 months': ChartBarIcon,
-  'By category': TagIcon, 'Top merchants': BuildingStorefrontIcon, 'By weekday': CalendarDaysIcon, Debts: CreditCardIcon, 'Payment schedule': CalendarDaysIcon,
+  'Where it went': ChartPieIcon, Recent: ClockIcon, Bills: ArrowPathIcon, 'Month by month': CalendarDaysIcon, 'Last 6 months': ChartBarIcon,
+  'By category': TagIcon, 'Top merchants': BuildingStorefrontIcon, 'By weekday': CalendarDaysIcon, Debts: CreditCardIcon,
   'Your target': ShieldCheckIcon, 'Which categories count': TagIcon, 'Category budgets': ChartPieIcon, Monthly: ChartBarIcon, 'By category this year': TagIcon,
   CSV: ArrowDownTrayIcon, 'Monthly summary': DocumentTextIcon, Policy: ShieldCheckIcon, 'Request a refund': ArrowUturnLeftIcon, 'Activation codes': KeyIcon,
   'Add-ons': Squares2X2Icon, Goals: FlagIcon, Billing: BanknotesIcon,
@@ -260,7 +260,7 @@ export function ProgressBar({ value, tone, color, className }: { value: number; 
   )
 }
 
-/* ---------- Menu (anchored popover) ---------- */
+/* ---------- Menu (anchored popover; a bottom sheet below 640px) ---------- */
 export function Menu({ trigger, children, align = 'end', className }: { trigger: (open: boolean) => React.ReactNode; children: (close: () => void) => React.ReactNode; align?: 'start' | 'end'; className?: string }) {
   const [open, setOpen] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
@@ -274,8 +274,13 @@ export function Menu({ trigger, children, align = 'end', className }: { trigger:
   return (
     <div ref={ref} className={cx('relative inline-block', className)}>
       <div onClick={() => setOpen(o => !o)}>{trigger(open)}</div>
+      {open && <div className="sm:hidden fixed inset-0 z-50 bg-black/40 animate-[fadeIn_.15s]" onClick={() => setOpen(false)} />}
       {open && (
-        <div role="menu" className={cx('absolute z-40 mt-1.5 min-w-[180px] max-h-[60vh] overflow-y-auto rounded-xl bg-card p-1 shadow-[var(--shadow-popover)] animate-[dialogIn_.12s_var(--ease-standard)]', align === 'end' ? 'right-0 origin-top-right' : 'left-0 origin-top-left')}>
+        <div role="menu" className={cx(
+          'z-50 overflow-y-auto overscroll-contain bg-card shadow-[var(--shadow-popover)]',
+          'max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:max-h-[70dvh] max-sm:rounded-t-2xl max-sm:p-2 max-sm:pb-[calc(8px+env(safe-area-inset-bottom))] max-sm:animate-[sheetUp_.15s_var(--ease-standard)]',
+          'sm:absolute sm:mt-1.5 sm:min-w-[180px] sm:max-h-[60vh] sm:rounded-xl sm:p-1 sm:animate-[dialogIn_.15s_var(--ease-standard)]',
+          align === 'end' ? 'sm:right-0 sm:origin-top-right' : 'sm:left-0 sm:origin-top-left')}>
           {children(() => setOpen(false))}
         </div>
       )}
@@ -288,34 +293,52 @@ export function MenuItem({ selected, className, children, ...rest }: React.Butto
   )
 }
 
-/* ---------- Dialog / Sheet ---------- */
+/* ---------- Dialog ---------- */
 /** Centered dialog (radius 16, 150ms scale-in); a bottom sheet with a grab handle below 640px.
  *  `keepMounted` keeps the children in the page while closed, so a form opens instantly and keeps its state. */
 export function Dialog({ open, onClose, title, description, children, width = 480, keepMounted }: { open: boolean; onClose: () => void; title?: React.ReactNode; description?: React.ReactNode; children: React.ReactNode; width?: number; keepMounted?: boolean }) {
   const root = React.useRef<HTMLDivElement>(null)
+  const titleId = React.useId()
+  const close = React.useRef(onClose)
+  React.useEffect(() => { close.current = onClose })
+  // What had focus when the dialog opened, read before an autofocused field inside takes it.
+  const opener = React.useRef<HTMLElement | null>(null)
+  if (!open) opener.current = null
+  else if (!opener.current) opener.current = document.activeElement as HTMLElement | null
   React.useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const el = root.current, back = opener.current
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return close.current()
+      if (e.key !== 'Tab' || !el) return
+      // Tab stays inside the dialog.
+      const stops = [...el.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => !x.hasAttribute('disabled') && x.offsetParent)
+      const first = stops[0], last = stops[stops.length - 1], at = document.activeElement
+      if (!first) return
+      if (!el.contains(at) || (!e.shiftKey && at === last)) { e.preventDefault(); first.focus() }
+      else if (e.shiftKey && at === first) { e.preventDefault(); last.focus() }
+    }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     // The phone keyboard shrinks the visual viewport, not the layout one: pin the overlay to what is visible.
-    const vv = window.visualViewport, el = root.current
+    const vv = window.visualViewport
     const fit = () => { if (vv && el) { el.style.top = `${vv.offsetTop}px`; el.style.height = `${vv.height}px` } }
     fit(); vv?.addEventListener('resize', fit); vv?.addEventListener('scroll', fit)
     return () => {
       window.removeEventListener('keydown', onKey); document.body.style.overflow = ''
       vv?.removeEventListener('resize', fit); vv?.removeEventListener('scroll', fit)
+      if (back?.isConnected) back.focus({ preventScroll: true })
     }
-  }, [open, onClose])
+  }, [open])
   if (!open && !keepMounted) return null
   return (
-    <div ref={root} hidden={!open} className="fixed inset-x-0 top-0 h-dvh z-50 flex items-end sm:items-center justify-center sm:p-6" role="dialog" aria-modal="true">
+    <div ref={root} hidden={!open} className="fixed inset-x-0 top-0 h-dvh z-50 flex items-end sm:items-center justify-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined}>
       <div className="absolute inset-0 bg-black/40 animate-[fadeIn_.15s]" onClick={onClose} />
-      <div className="relative w-full max-h-[92%] sm:max-h-full overflow-y-auto overscroll-contain bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] pb-[env(safe-area-inset-bottom)] animate-[sheetUp_.18s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
+      <div className="relative w-full max-h-[92%] sm:max-h-full overflow-y-auto overscroll-contain bg-card rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-dialog)] pb-[env(safe-area-inset-bottom)] animate-[sheetUp_.15s_var(--ease-standard)] sm:animate-[dialogIn_.15s_var(--ease-standard)]" style={{ maxWidth: width }}>
         <div className="sm:hidden mx-auto mt-2 h-1 w-9 rounded-full bg-muted-2" aria-hidden />
         {(title || description) && (
           <div className="px-5 sm:px-6 pt-4 sm:pt-6">
-            {title && <h2 className="text-lg text-foreground">{title}</h2>}
+            {title && <h2 id={titleId} className="text-lg text-foreground">{title}</h2>}
             {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
           </div>
         )}
@@ -324,7 +347,6 @@ export function Dialog({ open, onClose, title, description, children, width = 48
     </div>
   )
 }
-export const Sheet = Dialog
 
 /* ---------- Toast ---------- */
 /** The one toast of the app, fed by `useUI().showToast`. Sits above the phone bottom bar. An action (Undo) keeps it up longer. */
@@ -335,7 +357,7 @@ export function Toaster() {
   return (
     <div role="status" aria-live="polite" className={cx(
       'fixed z-[60] left-1/2 bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-6 max-w-[calc(100vw-32px)] min-h-10 pl-3.5 pr-1.5 py-1.5 rounded-lg text-sm flex items-center gap-2 shadow-[0_8px_24px_rgba(0,0,0,.18)] animate-[toastIn_.15s_var(--ease-standard)_both]',
-      toast.kind === 'err' ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground',
+      toast.kind === 'err' ? 'bg-destructive text-primary-foreground' : 'bg-primary text-primary-foreground',
     )}>
       <span className="truncate pr-2">{toast.msg}</span>
       {toast.action && (
