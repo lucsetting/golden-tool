@@ -3,11 +3,11 @@ import { currentMonthKey } from './lib/money'
 import type { ModuleKind } from './lib/modules'
 
 export type Tab =
-  | 'home' | 'activity' | 'insights' | 'refund'
+  | 'home' | 'activity' | 'cashflow' | 'bills' | 'budgets' | 'insights' | 'refund'
   | 'debts' | 'debts-schedule'
   | 'goals' | 'goals-emergency'
-  | 'reports' | 'reports-yearly' | 'reports-export'
-  | 'settings' | 'settings-categories' | 'settings-recurring' | 'settings-data' | 'settings-billing' | 'settings-refund'
+  | 'reports' | 'reports-export'
+  | 'settings' | 'settings-categories' | 'settings-rules' | 'settings-data' | 'settings-billing' | 'settings-refund'
   | 'more'
 
 export type Section = 'dashboard' | ModuleKind | 'settings' | 'more'
@@ -20,11 +20,11 @@ export function sectionOf(tab: Tab): Section {
   return 'dashboard'
 }
 export const SECTION_TABS: Record<Section, { tab: Tab; label: string }[]> = {
-  dashboard: [{ tab: 'home', label: 'Home' }, { tab: 'activity', label: 'Activity' }, { tab: 'insights', label: 'Insights' }, { tab: 'refund', label: 'Refund' }],
+  dashboard: [{ tab: 'home', label: 'Home' }, { tab: 'activity', label: 'Activity' }, { tab: 'cashflow', label: 'Cash flow' }, { tab: 'bills', label: 'Bills' }, { tab: 'budgets', label: 'Budgets' }, { tab: 'insights', label: 'Insights' }, { tab: 'refund', label: 'Refund' }],
   debts: [{ tab: 'debts', label: 'Payoff plan' }, { tab: 'debts-schedule', label: 'Month by month' }],
   goals: [{ tab: 'goals', label: 'Goals' }, { tab: 'goals-emergency', label: 'Emergency fund' }],
-  reports: [{ tab: 'reports', label: 'Budgets' }, { tab: 'reports-yearly', label: 'Yearly report' }, { tab: 'reports-export', label: 'Export' }],
-  settings: [{ tab: 'settings', label: 'General' }, { tab: 'settings-categories', label: 'Categories' }, { tab: 'settings-recurring', label: 'Bills' }, { tab: 'settings-data', label: 'Data' }, { tab: 'settings-billing', label: 'Billing' }, { tab: 'settings-refund', label: 'Refund' }],
+  reports: [{ tab: 'reports', label: 'Yearly report' }, { tab: 'reports-export', label: 'Export' }],
+  settings: [{ tab: 'settings', label: 'General' }, { tab: 'settings-categories', label: 'Categories' }, { tab: 'settings-rules', label: 'Rules' }, { tab: 'settings-data', label: 'Data' }, { tab: 'settings-billing', label: 'Billing' }, { tab: 'settings-refund', label: 'Refund' }],
   more: [],
 }
 
@@ -38,6 +38,9 @@ interface UIState {
   sheet: { open: boolean; editingId?: string }
   openSheet: (editingId?: string) => void
   closeSheet: () => void
+  /** statement import dialog */
+  importing: boolean
+  setImporting: (open: boolean) => void
   /** `action` adds a button to the toast (Undo); the toast then stays up longer. */
   toast?: { msg: string; kind?: 'ok' | 'err'; action?: ToastAction }
   showToast: (msg: string, kind?: 'ok' | 'err', action?: ToastAction) => void
@@ -45,8 +48,9 @@ interface UIState {
 }
 export interface ToastAction { label: string; run: () => void }
 let toastTimer: ReturnType<typeof setTimeout> | undefined
+let errorAt = 0
 
-export const useUI = create<UIState>()(set => ({
+export const useUI = create<UIState>()((set, get) => ({
   tab: 'home',
   setTab: tab => set({ tab }),
   month: currentMonthKey(),
@@ -54,7 +58,12 @@ export const useUI = create<UIState>()(set => ({
   sheet: { open: false },
   openSheet: editingId => set({ sheet: { open: true, editingId } }),
   closeSheet: () => set({ sheet: { open: false } }),
+  importing: false,
+  setImporting: importing => set({ importing }),
   showToast: (msg, kind = 'ok', action) => {
+    // A refused write is followed by its caller's "Saved": the error stays, the success message is dropped.
+    if (kind === 'ok' && get().toast?.kind === 'err' && Date.now() - errorAt < 1000) return
+    if (kind === 'err') errorAt = Date.now()
     clearTimeout(toastTimer)
     set({ toast: { msg, kind, action } })
     toastTimer = setTimeout(() => set({ toast: undefined }), action ? 6000 : 2400)

@@ -25,6 +25,12 @@ export function todayISO(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+/** The date `n` days after `iso` (before, when negative). */
+export function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + n)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
 export function monthKey(date: string): string {
   return date.slice(0, 7)
 }
@@ -49,8 +55,8 @@ export function dateLabel(iso: string): string {
   const dt = new Date(y, m - 1, d)
   const today = todayISO()
   if (iso === today) return 'Today'
-  const yd = new Date(); yd.setDate(yd.getDate() - 1)
-  if (iso === `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`) return 'Yesterday'
+  if (iso === addDays(today, -1)) return 'Yesterday'
+  if (iso === addDays(today, 1)) return 'Tomorrow'
   return dateFmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(dt)
 }
 /** Short label of the month `n` months from now. */

@@ -6,7 +6,7 @@ export default function CategoryPicker({ value, onChange }: { value: string; onC
   const categories = useStore(s => s.categories)
   return (
     <div role="radiogroup" aria-label="Category" className="grid grid-cols-3 sm:grid-cols-4 gap-1">
-      {categories.map(c => {
+      {categories.filter(c => !c.hidden || c.id === value).map(c => {
         const on = c.id === value
         return (
           <button key={c.id} type="button" role="radio" aria-checked={on} title={c.name} onClick={() => onChange(c.id)}

@@ -35,9 +35,8 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
   reports: {
     kind: 'reports', name: 'Golden Vision', short: 'Reports', price: '$27',
     benefits: [
-      { title: 'Category budgets', text: 'A cap for groceries, dining, shopping. The bar turns red before you overspend.' },
       { title: 'Yearly report', text: 'Twelve months side by side, with the total and the monthly average.' },
-      { title: 'CSV export', text: 'Every expense, ready for Excel, Google Sheets or your accountant.' },
+      { title: 'CSV export', text: 'Every expense and income, ready for Excel, Google Sheets or your accountant.' },
       { title: 'Monthly summary', text: 'What changed versus last month, in plain English.' },
     ],
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-REPORTS',

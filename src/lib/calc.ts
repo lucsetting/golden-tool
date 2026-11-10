@@ -1,5 +1,5 @@
-import type { Category, Expense, Recurring } from '../types'
-import { currentMonthKey, daysInMonth, fmt, monthKey, monthLabel, shiftMonth, todayISO } from './money'
+import type { Category, Expense, Income, ISODate, Recurring } from '../types'
+import { addDays, currentMonthKey, daysInMonth, fmt, monthKey, monthLabel, shiftMonth, todayISO } from './money'
 
 export function expensesForMonth(expenses: Expense[], mk: string): Expense[] {
   return expenses.filter(e => monthKey(e.date) === mk).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt))
@@ -7,6 +7,9 @@ export function expensesForMonth(expenses: Expense[], mk: string): Expense[] {
 export function total(expenses: { amount: number }[]): number {
   return Math.round(expenses.reduce((s, e) => s + e.amount, 0) * 100) / 100
 }
+
+/** Stands in for a category that no longer exists. */
+export const OTHER: Category = { id: 'other', name: 'Other', icon: 'Circle', color: '#8E919A' }
 
 export interface CategorySlice { category: Category; amount: number; pct: number; count: number }
 /** Breakdown by category, sorted desc. pct is 0..100 of the month total. */
@@ -20,7 +23,7 @@ export function byCategory(expenses: Expense[], categories: Category[]): Categor
   }
   return [...map.entries()]
     .map(([id, v]) => {
-      const category = categories.find(c => c.id === id) ?? { id, name: 'Other', icon: 'Circle', color: '#8E919A' }
+      const category = categories.find(c => c.id === id) ?? { ...OTHER, id }
       return { category, amount: Math.round(v.amount * 100) / 100, pct: Math.round((v.amount / sum) * 1000) / 10, count: v.count }
     })
     .sort((a, b) => b.amount - a.amount)
@@ -84,7 +87,7 @@ export function dailyCumulative(expenses: Expense[], mk: string, limit: number, 
     perDay[i] += e.amount
     if (e.recurringId) bills[i] += e.amount
   }
-  for (const r of billsDue(expenses, mk, recurring)) bills[Math.max(1, Math.min(r.dayOfMonth || 1, dim)) - 1] += r.amount
+  for (const r of billsDue(expenses, mk, recurring)) bills[Number(dayIn(r.dayOfMonth, mk).slice(8)) - 1] += r.amount
   const rest = Math.max(0, limit - total(bills.map(amount => ({ amount }))))
   const cur = currentMonthKey()
   const lastDay = mk === cur ? Number(todayISO().slice(8, 10)) : mk < cur ? dim : 0
@@ -200,4 +203,127 @@ export function monthSummary(expenses: Expense[], categories: Category[], mk: st
     `Biggest purchase: ${big.name}, ${f(big.amount)} on ${big.date}.`,
     `${list.length} expense${list.length === 1 ? '' : 's'}, ${noSpend} no-spend day${noSpend === 1 ? '' : 's'}.`,
   ].join('\n')
+}
+
+/* ---------- Bills and repeating income ---------- */
+
+/** The date a monthly day falls on in a month; a day the month does not have falls on its last day. */
+export function dayIn(day: number, mk: string): ISODate {
+  return `${mk}-${String(Math.max(1, Math.min(Math.round(day) || 1, daysInMonth(mk)))).padStart(2, '0')}`
+}
+/** What repeats, has come due and is not in the lists yet: bills as expenses, repeating income as income.
+ *  `recurringApplied` holds the months already swept (YYYY-MM) and one key per posting (id@YYYY-MM),
+ *  so a posting the customer deleted is not posted again. Months nobody opened the app in are caught up, a year back at most. */
+export function postings(s: { expenses: Expense[]; recurring: Recurring[]; incomes: Income[]; recurringApplied: string[] }, today: ISODate) {
+  const cur = monthKey(today), done = new Set(s.recurringApplied)
+  const last = s.recurringApplied.filter(k => k.length === 7).sort().pop()
+  const from = (start: string, back: number) => (start < shiftMonth(cur, -back) ? shiftMonth(cur, -back) : start)
+  const expenses: Omit<Expense, 'id' | 'createdAt'>[] = [], incomes: Omit<Income, 'id' | 'createdAt'>[] = [], applied: string[] = []
+  for (let mk = from(last && last < cur ? shiftMonth(last, 1) : cur, 11); mk <= cur; mk = shiftMonth(mk, 1)) {
+    for (const r of s.recurring) {
+      const key = `${r.id}@${mk}`, date = dayIn(r.dayOfMonth, mk)
+      if (!r.active || date > today || done.has(key)) continue
+      applied.push(key)
+      if (!s.expenses.some(e => e.recurringId === r.id && monthKey(e.date) === mk)) expenses.push({ amount: r.amount, categoryId: r.categoryId, name: r.name, date, recurringId: r.id })
+    }
+    if (!done.has(mk)) applied.push(mk)
+  }
+  for (const t of s.incomes) {
+    if (!t.repeat) continue
+    for (let mk = from(shiftMonth(monthKey(t.date), 1), 23); mk <= cur; mk = shiftMonth(mk, 1)) {
+      const key = `${t.id}@${mk}`, date = dayIn(Number(t.date.slice(8)), mk)
+      if (date > today || done.has(key)) continue
+      applied.push(key)
+      if (!s.incomes.some(i => i.repeatOf === t.id && monthKey(i.date) === mk)) incomes.push({ amount: t.amount, source: t.source, date, repeatOf: t.id })
+    }
+  }
+  return { expenses, incomes, applied }
+}
+/** Active bills that fall in the `days` days after `today`, soonest first. Today's bills are already posted as expenses. */
+export function dueSoon(recurring: Recurring[], today: ISODate, days = 7): { bill: Recurring; date: ISODate }[] {
+  const end = addDays(today, days), cur = monthKey(today)
+  return recurring.filter(r => r.active)
+    .flatMap(bill => [cur, shiftMonth(cur, 1)].map(mk => ({ bill, date: dayIn(bill.dayOfMonth, mk) })))
+    .filter(x => x.date > today && x.date <= end)
+    .sort((a, b) => a.date.localeCompare(b.date) || b.bill.amount - a.bill.amount)
+}
+/** Bills flagged as subscriptions with what each costs in a year. The total leaves paused ones out. */
+export function subscriptions(recurring: Recurring[]) {
+  const items = recurring.filter(r => r.subscription).map(bill => ({ bill, yearly: Math.round(bill.amount * 1200) / 100 })).sort((a, b) => b.yearly - a.yearly)
+  return { items, monthly: total(items.filter(i => i.bill.active).map(i => i.bill)), yearly: total(items.filter(i => i.bill.active).map(i => ({ amount: i.yearly }))) }
+}
+
+/* ---------- Income and cash flow ---------- */
+
+/** Income, expenses and what is left of the income for one month. `rate` is the savings rate in percent, null with no income. */
+export function cashFlow(incomes: Income[], expenses: Expense[], mk: string) {
+  const income = total(incomes.filter(i => monthKey(i.date) === mk)), spent = total(expenses.filter(e => monthKey(e.date) === mk))
+  const net = Math.round((income - spent) * 100) / 100
+  return { month: mk, income, spent, net, rate: income > 0 ? Math.round((net / income) * 1000) / 10 : null }
+}
+/** The last n months of cash flow, oldest first. */
+export function cashFlowHistory(incomes: Income[], expenses: Expense[], n = 6, endMk = currentMonthKey()) {
+  return Array.from({ length: n }, (_, i) => cashFlow(incomes, expenses, shiftMonth(endMk, i - (n - 1))))
+}
+
+/* ---------- Budgets ---------- */
+
+export type BudgetState = 'none' | 'ok' | 'warn' | 'over'
+/** Under 80 percent of the budget is fine, from 80 to 100 is a warning, above it is over. */
+export function budgetState(spent: number, budget?: number): BudgetState {
+  if (!budget || budget <= 0) return 'none'
+  return spent > budget ? 'over' : spent >= budget * 0.8 ? 'warn' : 'ok'
+}
+
+/* ---------- Category rules ---------- */
+
+/** A merchant name as rules store it: lower case, digits and punctuation gone, single spaces. */
+export function normName(s: string): string {
+  return s.toLowerCase().replace(/['’.]/g, '').replace(/[^\p{L}]+/gu, ' ').trim()
+}
+/** The category remembered for a name. A longer text (a bank line) takes the longest rule it contains as whole words. */
+export function ruleFor(rules: Record<string, string>, name: string): string | undefined {
+  const n = normName(name)
+  if (!n) return undefined
+  if (rules[n]) return rules[n]
+  let best = ''
+  for (const k in rules) if (k.length >= 3 && k.length > best.length && ` ${n} `.includes(` ${k} `)) best = k
+  return best ? rules[best] : undefined
+}
+
+/* ---------- Weekly recap and streak ---------- */
+
+/** The last seven days against the seven before. Null until the first expense is seven days old. */
+export function weeklyRecap(expenses: Expense[], categories: Category[], today: ISODate = todayISO()) {
+  const start = addDays(today, -6), before = addDays(today, -13)
+  if (!expenses.some(e => e.date <= start)) return null
+  const week = expenses.filter(e => e.date >= start && e.date <= today)
+  const spent = total(week), prev = total(expenses.filter(e => e.date >= before && e.date < start))
+  const diff = Math.round((spent - prev) * 100) / 100
+  return {
+    spent, prev, diff, count: week.length,
+    pct: prev > 0 ? Math.round((diff / prev) * 100) : null,
+    top: byCategory(week, categories)[0] ?? null,
+    biggest: week.length ? week.reduce((a, b) => (b.amount > a.amount ? b : a)) : null,
+  }
+}
+/** Days in a row, ending today, with the month's spending at or under the limit pace (the line on the Home chart);
+ *  the longest such run so far; and closed months in a row at or under the monthly limit. Nothing before the first expense counts. */
+export function streak(expenses: Expense[], limit: number, recurring: Recurring[] = []): { days: number; longest: number; months: number } {
+  if (!(limit > 0) || !expenses.length) return { days: 0, longest: 0, months: 0 }
+  const first = expenses.reduce((a, e) => (e.date < a ? e.date : a), expenses[0].date)
+  const byMonth = new Map<string, Expense[]>()
+  for (const e of expenses) { const k = monthKey(e.date); byMonth.set(k, [...(byMonth.get(k) ?? []), e]) }
+  const cur = currentMonthKey()
+  let days = 0, longest = 0
+  for (let mk = monthKey(first); mk <= cur; mk = shiftMonth(mk, 1)) {
+    dailyCumulative(byMonth.get(mk) ?? [], mk, limit, mk === cur ? recurring : []).forEach(({ spent, ideal }, i) => {
+      if (spent === null || dayIn(i + 1, mk) < first) return // a day that has not come yet, or one before the first expense
+      days = spent <= ideal + 0.5 ? days + 1 : 0
+      longest = Math.max(longest, days)
+    })
+  }
+  let months = 0
+  for (let mk = shiftMonth(cur, -1); mk >= monthKey(first) && total(byMonth.get(mk) ?? []) <= limit; mk = shiftMonth(mk, -1)) months++
+  return { days, longest, months }
 }

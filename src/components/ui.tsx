@@ -42,7 +42,7 @@ const HEADER_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   'By category': TagIcon, 'Top merchants': BuildingStorefrontIcon, 'By weekday': CalendarDaysIcon, Debts: CreditCardIcon,
   'Your target': ShieldCheckIcon, 'Which categories count': TagIcon, 'Category budgets': ChartPieIcon, Monthly: ChartBarIcon, 'By category this year': TagIcon,
   CSV: ArrowDownTrayIcon, 'Monthly summary': DocumentTextIcon, Policy: ShieldCheckIcon, 'Request a refund': ArrowUturnLeftIcon, 'Activation codes': KeyIcon,
-  'Add-ons': Squares2X2Icon, Goals: FlagIcon, Billing: BanknotesIcon,
+  'Add-ons': Squares2X2Icon, Goals: FlagIcon, Billing: BanknotesIcon, 'Last 7 days': CalendarDaysIcon, 'Bills due soon': ClockIcon, Budgets: ChartPieIcon,
 }
 /** 44px card header with hairline below. A muted 16px icon sits before the title (explicit `icon`, or looked up by title). */
 export function CardHeader({ title, right, className, icon }: { title: React.ReactNode; right?: React.ReactNode; className?: string; icon?: React.ReactNode }) {
@@ -109,7 +109,7 @@ export function SectionStrip({ className }: { className?: string }) {
   const setTab = useUI(s => s.setTab)
   const section = sectionOf(tab)
   const items = SECTION_TABS[section]
-  // The main section's screens are already on the phone bar.
+  // The main section's screens are on the phone bar and under More.
   if (items.length < 2 || section === 'dashboard') return null
   return (
     <div className={cx('lg:hidden -mx-4 px-4 overflow-x-auto no-scrollbar', className)}>

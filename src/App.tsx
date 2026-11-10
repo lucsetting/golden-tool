@@ -9,6 +9,10 @@ import SetPassword from './components/SetPassword'
 import Dashboard from './pages/Dashboard'
 import Activity from './pages/Activity'
 import Insights from './pages/Insights'
+import CashFlow from './pages/CashFlow'
+import Bills from './pages/Bills'
+import Budgets from './pages/Budgets'
+import StatementImport from './components/StatementImport'
 import Debts from './pages/Debts'
 import Goals from './pages/Goals'
 import Reports from './pages/Reports'
@@ -22,11 +26,11 @@ import { startSync } from './lib/sync'
 import { hasAccounts } from './lib/supabase'
 
 const PAGES: Record<Tab, React.ComponentType> = {
-  home: Dashboard, activity: Activity, insights: Insights, refund: Refund,
+  home: Dashboard, activity: Activity, cashflow: CashFlow, bills: Bills, budgets: Budgets, insights: Insights, refund: Refund,
   debts: Debts, 'debts-schedule': Debts,
   goals: Goals, 'goals-emergency': Goals,
-  reports: Reports, 'reports-yearly': Reports, 'reports-export': Reports,
-  settings: Settings, 'settings-categories': Settings, 'settings-recurring': Settings, 'settings-data': Settings, 'settings-billing': Settings, 'settings-refund': Settings,
+  reports: Reports, 'reports-export': Reports,
+  settings: Settings, 'settings-categories': Settings, 'settings-rules': Settings, 'settings-data': Settings, 'settings-billing': Settings, 'settings-refund': Settings,
   more: More,
 }
 
@@ -58,7 +62,7 @@ export default function App() {
   return (
     <Layout>
       <Page />
-      {readOnly ? <AccessGate /> : <ExpenseSheet />}
+      {readOnly ? <AccessGate /> : <><ExpenseSheet /><StatementImport /></>}
       <SetPassword first open={needsPassword && !pwDismissed} onClose={() => setPwDismissed(true)} />
     </Layout>
   )

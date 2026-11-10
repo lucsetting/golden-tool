@@ -18,8 +18,8 @@ export default function SetupCard() {
   const steps: { label: string; done: boolean; tab?: Tab; addon?: boolean }[] = [
     { label: 'Set your monthly limit', done: settings.monthlyLimit > 0, tab: 'settings' },
     { label: 'Add your first expense', done: hasExpense },
-    { label: 'Add a monthly bill', done: hasBill, tab: 'activity' },
-    { label: 'Set a category budget', done: hasBudget, tab: 'reports', addon: !hasModule(settings, 'reports') },
+    { label: 'Add a monthly bill', done: hasBill, tab: 'bills' },
+    { label: 'Set a category budget', done: hasBudget, tab: 'budgets' },
     { label: 'Add a goal or a debt', done: hasGoalOrDebt, tab: 'goals', addon: !hasModule(settings, 'goals') && !hasModule(settings, 'debts') },
   ]
   const done = steps.filter(x => x.done).length

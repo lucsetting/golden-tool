@@ -20,9 +20,8 @@ const INCLUDES: Record<ModuleKind, string[]> = {
     'Progress on each goal as you add contributions',
   ],
   reports: [
-    'A budget for each category, with what is left or over this month',
     'Yearly report: twelve months, total, monthly average and categories',
-    'CSV export of every expense',
+    'CSV export of every expense and income, with tags',
     'A monthly summary as text you can copy',
   ],
 }

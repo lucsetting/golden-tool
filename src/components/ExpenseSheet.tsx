@@ -1,17 +1,18 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
-import { daysInMonth, todayISO } from '../lib/money'
+import { addDays, daysInMonth, todayISO } from '../lib/money'
+import { ruleFor } from '../lib/calc'
 import { deleteWithUndo } from '../lib/undo'
-import { Button, Dialog, Field, Input, Switch, cx } from './ui'
+import { Button, Dialog, Field, Input, Switch, cx, inputCls } from './ui'
 import CategoryPicker from './CategoryPicker'
 
 const LAST_CAT = 'golden-tool:lastCat'
 const lastCat = () => { try { return localStorage.getItem(LAST_CAT) } catch { return null } }
-const yesterdayISO = () => { const d = new Date(); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 /** "12,50" and "12.5" both work */
 export const parseAmount = (s: string) => Math.round(Number(s.replace(',', '.')) * 100) / 100
-/** Controls are 36px; on a phone they grow to the 44px tap target. */
+/** A tag as it is stored: lower case, no leading #, no commas. */
+const cleanTag = (s: string) => s.trim().toLowerCase().replace(/^#+/, '').replace(/,/g, '').slice(0, 24)
 
 /** Add and edit form. Stays mounted while closed (`keepMounted`), so opening it is only a state reset and a focus. */
 export default function ExpenseSheet() {
@@ -28,6 +29,10 @@ export default function ExpenseSheet() {
   const [date, setDate] = useState(todayISO)
   const [note, setNote] = useState('')
   const [repeat, setRepeat] = useState(false)
+  const [tags, setTags] = useState<string[]>([])
+  const [tagText, setTagText] = useState('')
+  /** true once the customer chose the category by hand: a category rule no longer changes it */
+  const [picked, setPicked] = useState(false)
   const [errors, setErrors] = useState<{ amount?: string; date?: string }>({})
   const amountRef = useRef<HTMLInputElement>(null)
 
@@ -44,6 +49,8 @@ export default function ExpenseSheet() {
       setDate(editing?.date ?? todayISO())
       setNote(editing?.note ?? '')
       setRepeat(false)
+      setTags(editing?.tags ?? []); setTagText('')
+      setPicked(!!editing)
       setErrors({})
     }
   }
@@ -57,6 +64,20 @@ export default function ExpenseSheet() {
     return [...n.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k]) => k)
   }, [expenses])
   const day = Number(date.slice(8, 10)) || 1
+  const knownTags = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const e of expenses) for (const t of e.tags ?? []) n.set(t, (n.get(t) ?? 0) + 1)
+    return [...n.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
+  }, [expenses])
+  const tagIdeas = knownTags.filter(t => !tags.includes(t) && t.startsWith(cleanTag(tagText))).slice(0, 6)
+  const addTag = (raw: string) => { const t = cleanTag(raw); if (t && !tags.includes(t)) setTags([...tags, t]); setTagText('') }
+  // A name the app has seen fills its category, until the customer picks one.
+  const typeName = (v: string) => {
+    setName(v)
+    if (picked) return
+    const known = ruleFor(useStore.getState().rules, v)
+    if (known && categories.some(c => c.id === known && !c.hidden)) setCategoryId(known)
+  }
 
   const save = (another = false) => {
     const amt = parseAmount(amount)
@@ -69,14 +90,18 @@ export default function ExpenseSheet() {
     const store = useStore.getState()
     const finalName = name.trim() || categories.find(c => c.id === categoryId)?.name || 'Expense'
     const noteVal = note.trim() || undefined
-    if (editing) store.updateExpense(editing.id, { amount: amt, name: finalName, categoryId, date, note: noteVal })
+    const pending = cleanTag(tagText)
+    const allTags = pending && !tags.includes(pending) ? [...tags, pending] : tags
+    const tagVal = allTags.length ? allTags : undefined
+    if (editing) store.updateExpense(editing.id, { amount: amt, name: finalName, categoryId, date, note: noteVal, tags: tagVal })
     else if (repeat) store.addRecurring({ amount: amt, categoryId, name: finalName, dayOfMonth: Math.min(day, daysInMonth(date.slice(0, 7))), active: true })
-    else store.addExpense({ amount: amt, name: finalName, categoryId, date, note: noteVal })
+    else store.addExpense({ amount: amt, name: finalName, categoryId, date, note: noteVal, tags: tagVal })
+    if (name.trim()) store.learnRule(name, categoryId)
     try { localStorage.setItem(LAST_CAT, categoryId) } catch { /* private mode */ }
     useUI.getState().showToast(repeat && !editing ? 'Saved as monthly' : 'Saved')
     if (!another) return closeSheet()
     // Next receipt: date and category stay.
-    setAmount(''); setName(''); setNote(''); setRepeat(false)
+    setAmount(''); setName(''); setNote(''); setRepeat(false); setTagText(''); setPicked(false)
     amountRef.current?.focus()
   }
 
@@ -97,21 +122,43 @@ export default function ExpenseSheet() {
           {errors.amount && <span className="block text-xs text-destructive mt-1.5">{errors.amount}</span>}
         </div>
         <Field label="Name">
-          <Input list="expense-names" value={name} onChange={e => setName(e.target.value)} placeholder="Where did it go?" autoComplete="off" />
+          <Input list="expense-names" value={name} onChange={e => typeName(e.target.value)} placeholder="Where did it go?" autoComplete="off" />
           <datalist id="expense-names">{suggestions.map(s => <option key={s} value={s} />)}</datalist>
         </Field>
         <div>
           <span className="block text-sm text-foreground mb-2">Category</span>
-          <CategoryPicker value={categoryId} onChange={setCategoryId} />
+          <CategoryPicker value={categoryId} onChange={id => { setCategoryId(id); setPicked(true) }} />
         </div>
         <Field label="Date" error={errors.date}>
           <div className="flex items-center gap-2">
             <Input type="date" value={date} max={today} onChange={e => { setDate(e.target.value); setErrors(x => ({ ...x, date: undefined })) }} className="min-w-0" />
             <Button type="button" className="shrink-0" onClick={() => setDate(today)}>Today</Button>
-            <Button type="button" className="shrink-0" onClick={() => setDate(yesterdayISO())}>Yesterday</Button>
+            <Button type="button" className="shrink-0" onClick={() => setDate(addDays(today, -1))}>Yesterday</Button>
           </div>
         </Field>
         <Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="Optional" /></Field>
+        <div>
+          <label htmlFor="expense-tags" className="block text-sm text-foreground mb-2">Tags</label>
+          {/* The chips and the text field share one box; Enter or a comma turns the text into a chip. */}
+          <div className={cx(inputCls, 'h-auto! min-h-9 max-sm:min-h-11 py-1 flex flex-wrap items-center gap-1 cursor-text focus-within:shadow-[var(--shadow-focus)]')} onClick={e => (e.currentTarget.querySelector('input') as HTMLInputElement).focus()}>
+            {tags.map(t => (
+              <button key={t} type="button" aria-label={`Remove tag ${t}`} onClick={() => setTags(tags.filter(x => x !== t))}
+                className="t h-6 pl-2 pr-1.5 rounded-sm bg-muted text-xs text-foreground inline-flex items-center gap-1 hover:bg-muted-2">{t}<span aria-hidden className="text-muted-foreground">×</span></button>
+            ))}
+            <input id="expense-tags" value={tagText} autoComplete="off" autoCapitalize="none" placeholder={tags.length ? '' : 'A trip, a project…'}
+              onChange={e => (e.target.value.endsWith(',') ? addTag(e.target.value) : setTagText(e.target.value))}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && cleanTag(tagText)) { e.preventDefault(); addTag(tagText) }
+                if (e.key === 'Backspace' && !tagText && tags.length) setTags(tags.slice(0, -1))
+              }}
+              className="flex-1 min-w-24 h-6 bg-transparent outline-none placeholder:text-muted-foreground" />
+          </div>
+          {tagIdeas.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tagIdeas.map(t => <button key={t} type="button" onClick={() => addTag(t)} className="t h-9 sm:h-7 px-2.5 rounded-md bg-muted text-xs text-muted-foreground hover:text-foreground hover:bg-muted-2">{t}</button>)}
+            </div>
+          )}
+        </div>
         {!editing && (
           <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4">
             <span>

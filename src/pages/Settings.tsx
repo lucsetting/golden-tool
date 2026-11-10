@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react'
 import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
-import { useStore } from '../store'
+import { isBuiltIn, useStore } from '../store'
 import { useUI } from '../ui-state'
 import { useAccount } from '../account'
 import { CURRENCIES, todayISO } from '../lib/money'
 import { install } from '../lib/install'
 import type { Theme } from '../types'
-import { Button, Card, CardHeader, CategoryBadge, CategoryIcon, Chip, Dialog, Divider, Field, IconButton, Input, PageHeader, Segmented, Select, SettingRow, TableRow, cx } from '../components/ui'
+import { Button, Card, CardHeader, CategoryBadge, CategoryIcon, Chip, Dialog, Divider, Empty, Field, IconButton, Input, PageHeader, Segmented, Select, SettingRow, TableRow, cx } from '../components/ui'
 import CodeInput from '../components/CodeInput'
 import { MODULE_ICON } from '../components/Layout'
 import { ACCESS_DAYS, LIFETIME, MODULES, KIND_UNLOCKS, REFUND_DAYS } from '../lib/modules'
 import { accessUntil, daysLeft, hasModule, isLifetime, isReadOnly } from '../lib/access'
+import { OTHER } from '../lib/calc'
 import { formatKey, parseKey, type KeyKind } from '../lib/license'
-import RecurringManager from '../components/RecurringManager'
 import RefundContent from '../components/RefundContent'
 import SetPassword from '../components/SetPassword'
 
@@ -62,16 +62,18 @@ function General() {
   )
 }
 
-type Draft = { id?: string; name: string; icon: string; color: string }
+type Draft = { id?: string; name: string; icon: string; color: string; hidden?: boolean }
 
 function Categories() {
   const categories = useStore(s => s.categories)
   const [edit, setEdit] = useState<Draft | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const open = (d: Draft) => { setEdit(d); setConfirming(false) }
+  const [moveTo, setMoveTo] = useState('other')
+  const inUse = useStore(s => (edit?.id ? [...s.expenses, ...s.recurring].filter(x => x.categoryId === edit.id).length : 0))
+  const open = (d: Draft) => { setEdit(d); setConfirming(false); setMoveTo('other') }
   const save = () => {
     if (!edit || !edit.name.trim()) return toast('Name is required', 'err')
-    const { id, ...c } = edit
+    const { id, hidden: _hidden, ...c } = edit
     const data = { ...c, name: c.name.trim() }
     if (id) useStore.getState().updateCategory(id, data); else useStore.getState().addCategory(data)
     setEdit(null)
@@ -81,24 +83,27 @@ function Categories() {
     const id = edit!.id!, before = useStore.getState()
     const index = before.categories.findIndex(c => c.id === id), cat = before.categories[index]
     const moved = new Set([...before.expenses, ...before.recurring].filter(x => x.categoryId === id).map(x => x.id))
-    before.deleteCategory(id)
+    const rules = Object.fromEntries(Object.entries(before.rules).filter(([, c]) => c === id))
+    before.deleteCategory(id, moveTo)
     setEdit(null)
-    // Undo puts the category back in its place and returns to it only what the delete moved to Other.
+    // Undo puts the category back in its place and returns to it only what the delete moved away.
     toast('Category deleted', 'ok', { label: 'Undo', run: () => useStore.setState(s => s.categories.some(c => c.id === id) ? {} : {
       categories: [...s.categories.slice(0, index), cat, ...s.categories.slice(index)],
       expenses: s.expenses.map(e => moved.has(e.id) ? { ...e, categoryId: id } : e),
       recurring: s.recurring.map(r => moved.has(r.id) ? { ...r, categoryId: id } : r),
+      rules: { ...s.rules, ...rules },
     }) })
   }
   return (
     <div>
-      <PageHeader title="Categories" subtitle="Rename, recolour or add your own."
+      <PageHeader title="Categories" subtitle="Add your own, rename and recolour any, hide the ones you do not use."
         actions={<Button onClick={() => open({ name: '', icon: 'Circle', color: COLORS[0] })}><PlusIcon /><span>Add category</span></Button>} />
       <Card>
         {categories.map(c => (
-          <TableRow key={c.id} onClick={() => open({ id: c.id, name: c.name, icon: c.icon, color: c.color })}>
-            <CategoryBadge category={c} size={28} />
-            <span className="flex-1 truncate text-foreground"><span className="sr-only">Edit </span>{c.name}</span>
+          <TableRow key={c.id} onClick={() => open({ id: c.id, name: c.name, icon: c.icon, color: c.color, hidden: c.hidden })}>
+            <CategoryBadge category={c} size={28} className={cx(c.hidden && 'opacity-50')} />
+            <span className={cx('flex-1 truncate', c.hidden ? 'text-muted-foreground' : 'text-foreground')}><span className="sr-only">Edit </span>{c.name}</span>
+            {c.hidden && <Chip>Hidden</Chip>}
             <ChevronRightIcon className="h-4 w-4 text-muted-foreground shrink-0" />
           </TableRow>
         ))}
@@ -106,11 +111,18 @@ function Categories() {
 
       <Dialog open={!!edit} onClose={() => setEdit(null)}
         title={confirming ? `Delete "${edit?.name}"?` : edit?.id ? 'Edit category' : 'New category'}
-        description={confirming ? 'Its expenses and bills will be moved to "Other".' : undefined}>
+        description={confirming ? (inUse ? `${inUse} ${inUse === 1 ? 'expense or bill uses' : 'expenses and bills use'} this category. Choose where ${inUse === 1 ? 'it goes' : 'they go'}.` : 'Nothing uses this category.') : undefined}>
         {edit && (confirming ? (
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button variant="destructive" className="max-sm:flex-1" onClick={remove}>Delete category</Button>
+          <div className="space-y-5">
+            {inUse > 0 && (
+              <Field label="Move to">
+                <Select value={moveTo} onChange={e => setMoveTo(e.target.value)}>{categories.filter(c => c.id !== edit.id && !c.hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+              </Field>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+              <Button variant="destructive" className="max-sm:flex-1" onClick={remove}>Delete category</Button>
+            </div>
           </div>
         ) : (
           <form className="space-y-6" onSubmit={e => { e.preventDefault(); save() }}>
@@ -138,14 +150,49 @@ function Categories() {
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              {edit.id && edit.id !== 'other'
-                ? <Button type="button" variant="destructive" onClick={() => setConfirming(true)}>Delete</Button>
-                : <span />}
+              {/* The categories the app came with keep their place in old expenses: they are hidden, not deleted. */}
+              {!edit.id || edit.id === 'other' ? <span />
+                : isBuiltIn(edit.id) ? <Button type="button" onClick={() => { useStore.getState().updateCategory(edit.id!, { hidden: !edit.hidden }); setEdit(null); toast(edit.hidden ? 'Category shown' : 'Category hidden') }}>{edit.hidden ? 'Show' : 'Hide'}</Button>
+                : <Button type="button" variant="destructive" onClick={() => setConfirming(true)}>Delete</Button>}
               <Button type="submit" variant="primary" className="max-sm:flex-1">Save</Button>
             </div>
           </form>
         ))}
       </Dialog>
+    </div>
+  )
+}
+
+/** What the app remembers about merchant names. A rule is written each time an expense is saved with a name. */
+function Rules() {
+  const rules = useStore(s => s.rules)
+  const categories = useStore(s => s.categories)
+  const names = Object.keys(rules).sort()
+  const remove = (name: string) => {
+    const categoryId = rules[name]
+    useStore.setState(s => ({ rules: Object.fromEntries(Object.entries(s.rules).filter(([k]) => k !== name)) }))
+    toast('Rule deleted', 'ok', { label: 'Undo', run: () => useStore.setState(s => (s.rules[name] ? {} : { rules: { ...s.rules, [name]: categoryId } })) })
+  }
+  return (
+    <div>
+      <PageHeader title="Rules" subtitle="The category the app fills in when you type a name it has seen, here and in a statement import." />
+      <Card>
+        {names.length === 0
+          ? <Empty title="No rules yet" text="Save an expense with a name and its category is remembered for the next time." />
+          : names.map(name => {
+            const c = categories.find(x => x.id === rules[name]) ?? OTHER
+            return (
+              <TableRow key={name} className="pr-2">
+                <CategoryBadge category={c} size={28} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-foreground truncate capitalize">{name}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 truncate">{c.name}</span>
+                </span>
+                <IconButton label={`Delete the rule for ${name}`} className="shrink-0" onClick={() => remove(name)}><TrashIcon /></IconButton>
+              </TableRow>
+            )
+          })}
+      </Card>
     </div>
   )
 }
@@ -164,6 +211,7 @@ function Data() {
   }
   const doImport = async (f?: File) => {
     if (!f) return
+    if (isReadOnly(useStore.getState().settings)) return toast('Included access ended. Nothing was changed.', 'err')
     const ok = useStore.getState().importJSON(await f.text())
     toast(ok ? 'Backup restored' : 'Not a valid Golden Tool backup', ok ? 'ok' : 'err')
     if (file.current) file.current.value = ''
@@ -183,6 +231,10 @@ function Data() {
       <SettingRow label="Restore" description="Import a backup file.">
         <Button className={ROW_BTN} onClick={() => file.current?.click()}><ArrowUpTrayIcon /><span>Import</span></Button>
         <input ref={file} type="file" accept="application/json,.json" hidden onChange={e => doImport(e.target.files?.[0])} />
+      </SettingRow>
+      <Divider className={SEP} />
+      <SettingRow label="Bank statement" description="Bring in a CSV file from your bank. It is read in this browser only.">
+        <Button className={ROW_BTN} onClick={() => useUI.getState().setImporting(true)}><ArrowUpTrayIcon /><span>Import statement</span></Button>
       </SettingRow>
       <Divider className={SEP} />
       {install.evt
@@ -284,12 +336,7 @@ export default function Settings() {
   if (tab === 'settings-categories') return <Categories />
   if (tab === 'settings-data') return <Data />
   if (tab === 'settings-billing') return <Billing />
-  if (tab === 'settings-recurring') return (
-    <div>
-      <PageHeader title="Bills" subtitle="Bills added as expenses automatically every month." />
-      <RecurringManager />
-    </div>
-  )
+  if (tab === 'settings-rules') return <Rules />
   if (tab === 'settings-refund') return (
     <div>
       <PageHeader title="Refund" subtitle={`Every purchase is covered by a ${REFUND_DAYS}-day money-back guarantee through Digistore24.`} />

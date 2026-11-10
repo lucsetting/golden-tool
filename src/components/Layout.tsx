@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon } from '@heroicons/react/16/solid'
+import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowsRightLeftIcon, AdjustmentsHorizontalIcon, FunnelIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { SECTION_TABS, sectionOf, useUI, type Section, type Tab } from '../ui-state'
 import { expensesForMonth, total } from '../lib/calc'
@@ -21,11 +21,11 @@ const RAIL: { section: Section; label: string; Icon: IconCmp; tab: Tab }[] = [
   { section: 'reports', label: MODULES.reports.name, Icon: ChartPieIcon, tab: 'reports' },
 ]
 const TAB_ICON: Partial<Record<Tab, IconCmp>> = {
-  home: HomeIcon, activity: ListBulletIcon, insights: ChartBarIcon, refund: ArrowUturnLeftIcon,
+  home: HomeIcon, activity: ListBulletIcon, cashflow: ArrowsRightLeftIcon, bills: ArrowPathIcon, budgets: AdjustmentsHorizontalIcon, insights: ChartBarIcon, refund: ArrowUturnLeftIcon,
   debts: CreditCardIcon, 'debts-schedule': CalendarDaysIcon,
   goals: FlagIcon, 'goals-emergency': ShieldCheckIcon,
-  reports: ChartPieIcon, 'reports-yearly': TableCellsIcon, 'reports-export': ArrowDownTrayIcon,
-  settings: UserIcon, 'settings-categories': TagIcon, 'settings-recurring': ArrowPathIcon, 'settings-data': CircleStackIcon, 'settings-billing': BanknotesIcon, 'settings-refund': ArrowUturnLeftIcon,
+  reports: TableCellsIcon, 'reports-export': ArrowDownTrayIcon,
+  settings: UserIcon, 'settings-categories': TagIcon, 'settings-rules': FunnelIcon, 'settings-data': CircleStackIcon, 'settings-billing': BanknotesIcon, 'settings-refund': ArrowUturnLeftIcon,
 }
 const SECTION_TITLE: Record<Section, string> = { dashboard: 'Golden Tool', debts: MODULES.debts.name, goals: MODULES.goals.name, reports: MODULES.reports.name, settings: 'Settings', more: 'More' }
 
@@ -159,21 +159,22 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </main>
 
-      {/* Phone bar (64px): Home, Activity, add, Insights, More. Nothing gold. */}
+      {/* Phone bar (64px): Home, Activity, add, Bills, More. Nothing gold. */}
       <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
         <div className="h-16 grid grid-cols-5 items-center px-2">
           <MobileTab label="Home" Icon={HomeIcon} active={tab === 'home'} onClick={() => setTab('home')} />
           <MobileTab label="Activity" Icon={ListBulletIcon} active={tab === 'activity'} onClick={() => setTab('activity')} />
           <button onClick={() => useUI.getState().openSheet()} aria-label="Add expense" className="t mx-auto h-11 w-11 rounded-full bg-primary text-primary-foreground inline-flex items-center justify-center active:scale-95"><PlusIcon className="h-5 w-5" /></button>
-          <MobileTab label="Insights" Icon={ChartBarIcon} active={tab === 'insights'} onClick={() => setTab('insights')} />
-          <MobileTab label="More" Icon={EllipsisHorizontalIcon} active={section !== 'dashboard' || tab === 'refund'} onClick={() => setTab('more')} />
+          <MobileTab label="Bills" Icon={ArrowPathIcon} active={tab === 'bills'} onClick={() => setTab('bills')} />
+          <MobileTab label="More" Icon={EllipsisHorizontalIcon} active={!['home', 'activity', 'bills'].includes(tab)} onClick={() => setTab('more')} />
         </div>
       </nav>
 
       <Dialog open={help} onClose={() => setHelp(false)} title="Resources" description="Quick ways to get more out of Golden Tool." width={420}>
         <ul className="text-sm text-foreground space-y-4">
           <li><span className="text-muted-foreground">Add fast.</span> Press <kbd className="px-1.5 py-0.5 rounded-sm bg-muted text-xs">N</kbd> anywhere to log an expense.</li>
-          <li><span className="text-muted-foreground">Fixed bills.</span> Turn on “Repeat monthly” once and rent, phone and subscriptions add themselves.</li>
+          <li><span className="text-muted-foreground">Bills.</span> Add rent, phone and subscriptions once in Bills and they post themselves every month.</li>
+          <li><span className="text-muted-foreground">Bank statement.</span> Activity → Import brings in a CSV file from your bank.</li>
           <li><span className="text-muted-foreground">Keep a backup.</span> Settings → Data → Export.</li>
           <li><span className="text-muted-foreground">Add-ons.</span> Manage them in Settings → Billing.</li>
         </ul>
