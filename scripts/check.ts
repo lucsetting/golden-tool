@@ -1,8 +1,11 @@
 // Smallest check that fails if money logic or license logic breaks. Run: npx tsx scripts/check.ts
 import assert from 'node:assert/strict'
 import { generateKey, isValidKey, normalizeKey, parseKey } from '../src/lib/license'
-import { budgetState, byCategory, cashFlow, dailyCumulative, dayIn, dueSoon, monthStats, normName, payoffPlan, postings, ruleFor, safeToSave, streak, subscriptions, total, weeklyRecap } from '../src/lib/calc'
+import { budgetState, byCategory, cashFlow, dailyCumulative, dayIn, dueSoon, monthStats, normName, postings, ruleFor, safeToSave, streak, subscriptions, total, weeklyRecap } from '../src/lib/calc'
 import { addDays, currentMonthKey, daysInMonth, parseAmount, parseMoney, plural, shiftMonth, todayISO } from '../src/lib/money'
+import { debtsNow, minimumOnly, neverPaid, owed, planProgress, simulate } from '../src/lib/debts'
+import { autoPlan, milestones, monthlyNeed, noSpendWeek, paceSeries, week52, withSaved } from '../src/lib/goals'
+import { anomalies, averageIncome, budgetReport, categoryTrends, dayHeat, fiftyThirtyTwenty, forecastYear, netWorth, rollover, yearCompare } from '../src/lib/vision'
 import { categorise, detectColumns, guessDayFirst, guessPositiveOut, parseCSV, parseDate, rowKey, toRows } from '../src/lib/statement'
 
 // license
@@ -49,9 +52,9 @@ assert.equal(monthStats([{ ...ex[0], amount: 150 }], '2026-01', 100).pace, 'over
 }
 
 // debt payoff: $1000 @ 0% with $100/mo min = 10 months, no interest
-const p = payoffPlan([{ id: 'd', name: 'd', balance: 1000, apr: 0, minPayment: 100 }], 0, 'snowball')
+const p = simulate([{ id: 'd', name: 'd', balance: 1000, apr: 0, minPayment: 100 }], { extra: 0, method: 'snowball' })
 assert.equal(p.months, 10); assert.equal(p.interestPaid, 0)
-const p2 = payoffPlan([{ id: 'd', name: 'd', balance: 1000, apr: 24, minPayment: 50 }], 100, 'avalanche')
+const p2 = simulate([{ id: 'd', name: 'd', balance: 1000, apr: 24, minPayment: 50 }], { extra: 100, method: 'avalanche' })
 assert.ok(p2.months < 10 && p2.interestPaid > 0)
 // ---------- stage 2 ----------
 const E = (id: string, amount: number, date: string, x: object = {}) => ({ id, amount, categoryId: 'a', name: id, date, createdAt: 0, ...x })
@@ -172,6 +175,107 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   assert.equal(addDays('2026-03-01', -1), '2026-02-28')
 }
 
+// ---------- stage 3 ----------
+
+// payoff plan: the minimum of a paid debt keeps going to the next one, so the monthly amount never drops
+{
+  const D = (id: string, balance: number, apr: number, minPayment: number, x: object = {}) => ({ id, name: id, balance, apr, minPayment, ...x })
+  const two = simulate([D('small', 100, 0, 50), D('big', 1000, 0, 50)], { extra: 0, method: 'snowball' })
+  assert.equal(two.months, 11); assert.deepEqual(two.rows.map(r => r.total), Array(11).fill(100))
+  assert.equal(two.payoffMonth.get('small'), 2); assert.deepEqual(two.rows[1].paidOff, ['small']); assert.equal(two.rows[10].balance, 0)
+  // what-if against the base plan: an extra amount, a one-off payment now, a one-off payment in a later month
+  const card = [D('card', 5000, 24, 150)], base = simulate(card, { extra: 0, method: 'avalanche' }, '2026-01')
+  const more = simulate(card, { extra: 100, method: 'avalanche' }, '2026-01')
+  assert.ok(more.months < base.months && more.interestPaid < base.interestPaid, 'an extra amount ends sooner and costs less interest')
+  const now = simulate(card, { extra: 0, method: 'avalanche', oneOff: { amount: 1000, month: '2026-01' } }, '2026-01')
+  assert.deepEqual([now.months, now.interestPaid], (s => [s.months, s.interestPaid])(simulate([D('card', 4000, 24, 150)], { extra: 0, method: 'avalanche' }, '2026-01')), 'a one-off payment now is a smaller balance')
+  const later = simulate(card, { extra: 0, method: 'avalanche', oneOff: { amount: 1000, month: '2026-03' } }, '2026-01')
+  assert.equal(later.rows[1].total, 1150); assert.equal(later.rows[0].total, 150); assert.ok(later.interestPaid < base.interestPaid && later.interestPaid > now.interestPaid)
+  // strategies side by side: avalanche never pays more interest
+  const mix = [D('small', 500, 5, 25), D('big', 4000, 25, 100)]
+  const snow = simulate(mix, { extra: 100, method: 'snowball' }), ava = simulate(mix, { extra: 100, method: 'avalanche' })
+  assert.equal(snow.payoffMonth.get('small')! < ava.payoffMonth.get('small')!, true); assert.ok(ava.interestPaid < snow.interestPaid)
+  assert.equal(Math.round((snow.interestBy.get('small')! + snow.interestBy.get('big')!) * 100) / 100, snow.interestPaid)
+  // minimum only: finite when it covers the interest, never when it does not
+  assert.equal(minimumOnly(D('x', 5000, 24, 100)).never, true); assert.equal(neverPaid(simulate([D('x', 5000, 24, 100)], { extra: 0, method: 'snowball' })), true)
+  const min = minimumOnly(D('x', 5000, 24, 150)); assert.equal(min.never, false); assert.ok(min.months > more.months && min.interest > more.interestPaid)
+  // payments: the balance follows them, with a month of interest at each month start; a correction moves it either way
+  const debt = { ...D('card', 1000, 12, 100), startDate: '2026-01-10' }
+  const P = (amount: number, date: string, x: object = {}) => ({ id: date, debtId: 'card', amount, date, ...x })
+  assert.equal(owed(debt, [], '2026-01-31'), 1000); assert.equal(owed(debt, [P(100, '2026-01-20')], '2026-01-19'), 1000, 'a payment dated later has not happened yet')
+  assert.equal(owed(debt, [P(100, '2026-01-20'), P(100, '2026-02-15')], '2026-03-05'), 817.09)
+  assert.equal(owed(debt, [P(-50, '2026-01-20', { correction: true })], '2026-01-25'), 1050); assert.equal(owed(debt, [P(5000, '2026-01-20')], '2026-03-05'), 0)
+  assert.equal(debtsNow([debt], [P(100, '2026-01-20')], '2026-01-25')[0].balance, 900)
+  // ahead or behind: the real balance against the plan's balance for this month, counted from the debt's start
+  const plan = { extra: 0, method: 'avalanche' as const }, at = (ps: ReturnType<typeof P>[]) => planProgress([debt], ps, plan, '2026-03-05')!
+  assert.deepEqual([at([]).since, at([]).expected, at([]).real], ['2026-01', 819.1, 1020.1])
+  assert.deepEqual([at([]).state, at([]).by], ['behind', 101], 'nothing paid in February: behind by that payment and its interest')
+  assert.deepEqual([at([P(100, '2026-02-15')]).state, at([P(100, '2026-02-15')]).by], ['due', 100], 'on plan through February, March still to pay')
+  assert.equal(at([P(100, '2026-02-15'), P(100, '2026-03-02')]).state, 'on')
+  assert.deepEqual([at([P(100, '2026-01-20'), P(100, '2026-02-15'), P(100, '2026-03-02')]).state, at([P(100, '2026-01-20'), P(100, '2026-02-15'), P(100, '2026-03-02')]).by], ['ahead', 102.01])
+  assert.equal(planProgress([debt], [], plan, '2026-01-25')!.state, 'on', 'the month a debt is entered it is on plan'); assert.equal(planProgress([], [], plan), null)
+  const second = { ...D('loan', 2000, 0, 50), startDate: '2026-03-01' } // a debt entered later joins the plan the month after
+  assert.equal(planProgress([debt, second], [], plan, '2026-03-05')!.expected, 2819.1)
+}
+
+// goals: saved is the sum of contributions; pace, needed per month, milestones, automatic plan, challenges
+{
+  const today = '2026-06-15'
+  const C = (goalId: string, amount: number, date: string, x: object = {}) => ({ id: goalId + date, goalId, amount, date, ...x })
+  const trip = { id: 't', name: 'Trip', target: 1000, color: '#000', deadline: '2027-06-15' }
+  const cs = [C('t', 250, '2026-01-10', { source: 'opening' as const }), C('t', 100, '2026-04-20'), C('t', 200, '2026-06-01'), C('other', 9, '2026-06-01')]
+  const [now] = withSaved([trip], cs)
+  assert.equal(now.saved, 550); assert.equal(monthlyNeed(now, today), 450 / 12); assert.equal(monthlyNeed({ ...now, deadline: undefined }, today), 0); assert.equal(monthlyNeed({ ...now, deadline: '2026-06-01' }, today), 0)
+  const ms = milestones(trip, cs, today)
+  assert.deepEqual(ms.map(m => m.reached ?? m.expected), ['2026-01-10', '2026-06-01', '2026-08', '2026-11'], '25% and 50% reached on the day; 75% and 100% at 100 a month, the opening amount is not pace')
+  assert.equal(milestones(trip, [cs[0]], today)[3].expected, undefined, 'no pace, no expected date')
+  const series = paceSeries(trip, cs, today)
+  assert.deepEqual(series.map(p => p.saved), [250, 350, 550, 550, null]); assert.deepEqual([series[0].pace, series[4].pace], [250, 1000], 'the line runs from the first contribution to the target on the deadline')
+  // automatic plan
+  const G = (id: string, target: number, saved: number, deadline?: string) => ({ id, name: id, target, saved, color: '#000', deadline })
+  const goals = [G('a', 1200, 0, '2027-06-15'), G('b', 600, 0, '2027-06-15'), G('c', 5000, 0)] // a needs 100 a month, b 50, c has no deadline
+  const split = (n: number, gs = goals) => autoPlan(gs, n, today).map(p => p.amount)
+  assert.deepEqual(split(120), [100, 20, 0]); assert.deepEqual(split(200), [150, 50, 0], 'the remainder goes to the first goal'); assert.deepEqual(split(0), [0, 0, 0]); assert.deepEqual(split(-5), [0, 0, 0])
+  assert.deepEqual(split(400, [G('a', 110, 0, '2027-06-15'), G('c', 5000, 0)]), [110, 290], 'never past the target; a goal with no deadline takes what is left')
+  // 52-week challenge and no-spend week
+  const w = week52({ id: 'w', kind: '52week', start: '2026-06-01', base: 5, done: [1], goalId: 't' }, today)
+  assert.deepEqual([w.week, w.next, w.amount, w.saved, w.total, w.nextStarts], [3, 2, 10, 5, 6890, '2026-06-22'])
+  assert.equal(week52({ id: 'w', kind: '52week', start: '2026-06-01', base: 5, done: [1, 2, 3] }, today).next, undefined)
+  const ns = { id: 'n', kind: 'nospend' as const, start: '2026-06-13', essentials: ['a'], done: [] }
+  const week = noSpendWeek(ns, [E('food', 30, '2026-06-13'), E('rent', 900, '2026-06-14', { categoryId: 'b', recurringId: 'r' })], today)
+  assert.deepEqual([week.state, week.clean, week.days[3].state], ['running', 3, 'ahead'], 'an essential expense and a bill do not break the week')
+  assert.equal(noSpendWeek(ns, [E('bar', 30, '2026-06-14', { categoryId: 'b' })], today).state, 'broken'); assert.equal(noSpendWeek(ns, [], '2026-06-20').state, 'kept')
+}
+
+// Golden Vision: forecast, anomaly, year over year, heatmap, net worth, rollover, 50/30/20, budget report
+{
+  const ex = [E('jul', 300, '2026-07-10'), E('aug', 300, '2026-08-10'), E('sep', 600, '2026-09-10'), E('oct', 100, '2026-10-03')]
+  const fc = forecastYear(ex, '2026-10-15')
+  assert.deepEqual([fc.soFar, fc.usual, fc.forecast, fc.left], [1300, 400, 2400, 2], 'so far, then 400 for October and each month left')
+  assert.equal(forecastYear([...ex, E('big', 600, '2026-10-04')], '2026-10-15').forecast, 1200 + 700 + 800, 'a month already above the average counts as it is')
+  assert.equal(forecastYear([E('only', 150, '2026-10-03')], '2026-10-15').usual, 310, 'with no complete month the daily average stands in')
+  const usual = (id: string, amount: number, x: object = {}) => ['07', '08', '09'].map(m => E(id + m, amount, `2026-${m}-05`, { categoryId: id, ...x }))
+  const hist = [...usual('a', 200), ...usual('b', 100), ...usual('c', 20), ...usual('rent', 1500, { recurringId: 'r' })]
+  const high = anomalies([...hist, E('a1', 150, '2026-10-10'), E('b1', 60, '2026-10-10', { categoryId: 'b' }), E('c1', 20, '2026-10-10', { categoryId: 'c' }), E('rent10', 1500, '2026-10-01', { categoryId: 'rent', recurringId: 'r' })], cats, '2026-10-15')
+  assert.deepEqual(high.map(h => [h.category.id, h.soFar, h.pace, h.usual]), [['a', 150, 310, 200]], '+55% and 110 above; b is +24%, c is 21 above, the rent is a bill')
+  assert.deepEqual(anomalies([...hist, E('a1', 60, '2026-10-02')], cats, '2026-10-02'), [], 'one early expense is not multiplied by the whole month')
+  assert.deepEqual(anomalies([E('a1', 900, '2026-10-02')], cats, '2026-10-02'), [], 'no earlier month, nothing to compare with')
+  const tr = categoryTrends([...hist, E('a6', 50, '2026-06-05')], cats, '2026-10').find(t => t.category.id === 'a')!
+  assert.deepEqual([tr.months.length, tr.last, tr.avg3, tr.change], [12, 200, 150, 33], 'September against June to August')
+  const yc = yearCompare([E('a', 100, '2025-01-05'), E('b', 80, '2025-02-05'), E('c', 500, '2025-12-05'), E('d', 150, '2026-01-05')], '2026', '2026-02-10')
+  assert.deepEqual(yc.rows.slice(0, 3).map(r => [r.now, r.prev, r.diff]), [[150, 100, 50], [0, 80, null], [null, 0, null]]); assert.deepEqual([yc.now, yc.prev, yc.diff, yc.months], [150, 100, 50, 1], 'totals cover the months both years have')
+  const heat = dayHeat([E('a', 10, '2026-03-01'), E('b', 20, '2026-03-02'), E('c', 30, '2026-03-03'), E('d', 40, '2026-03-04'), E('old', 99, '2025-03-04')], '2026')
+  assert.deepEqual(['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05'].map(heat.level), [1, 2, 3, 4, 0]); assert.equal(heat.days.size, 4)
+  assert.deepEqual(netWorth([{ id: 'a', name: 'Car', kind: 'Vehicle', value: 10000 }], [{ id: 'l', name: 'Family', kind: 'Other', value: 2000 }], [{ balance: 500 }]), { assets: 10000, liabilities: 2500, net: 7500 })
+  assert.deepEqual([rollover(100, 60), rollover(100, 150), rollover(100, 0)], [40, 0, 100], 'unused budget, never below zero, never more than one month of it')
+  const preset = fiftyThirtyTwenty(4001, [{ id: 'housing' }, { id: 'groceries' }, { id: 'dining' }, { id: 'shopping' }, { id: 'pets', group: 'needs' }], new Map([['housing', 1500], ['groceries', 500]]))
+  assert.deepEqual([preset.needs, preset.wants, preset.savings], [2001, 1200, 800])
+  assert.deepEqual([...preset.budgets], [['housing', 1501], ['groceries', 500], ['pets', 0], ['dining', 600], ['shopping', 600]], 'needs by what they usually cost, wants in equal shares, every unit handed out')
+  assert.equal(averageIncome([{ id: 'i', amount: 3000, source: 's', date: '2026-09-01', createdAt: 0 }, { id: 'j', amount: 5000, source: 's', date: '2026-08-01', createdAt: 0 }], '2026-10-15'), 4000)
+  const rep = budgetReport([E('x', 120, '2026-09-05'), E('y', 80, '2026-10-05')], [{ ...cats[0], budget: 100 }, cats[1]], '2026-10', 3)
+  assert.deepEqual([rep.months, rep.rows.length, rep.rows[0].actual, rep.rows[0].within], [['2026-08', '2026-09', '2026-10'], 1, [0, 120, 80], 2])
+}
+
 // state: a version 2 document gains the new lists and loses nothing; fields from a newer version survive the trip
 {
   const { migrate, pickData, useStore, loadState } = await import('../src/store')
@@ -185,13 +289,18 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
     recurringApplied: ['2026-01'],
   }
   const up = migrate(structuredClone(v2))
-  for (const k of Object.keys(v2) as (keyof typeof v2)[]) assert.deepEqual(up[k], v2[k], `${k} must come through the upgrade unchanged`)
+  for (const k of Object.keys(v2) as (keyof typeof v2)[]) if (k !== 'goals' && k !== 'debts') assert.deepEqual(up[k], v2[k], `${k} must come through the upgrade unchanged`)
   assert.deepEqual(up.incomes, []); assert.deepEqual(up.rules, {}); assert.deepEqual(migrate(up), up, 'running the migration twice changes nothing')
+  // version 4: what a goal had saved becomes its opening contribution, a debt keeps its balance and gains its start date
+  assert.deepEqual(up.goals, [{ id: 'g', name: 'Trip', target: 100, color: '#000' }]); assert.deepEqual(up.contributions.map(c => [c.goalId, c.amount, c.date, c.source]), [['g', 40, todayISO(), 'opening']])
+  assert.deepEqual(up.debts, [{ ...v2.debts[0], startDate: todayISO() }]); assert.deepEqual([up.payments, up.challenges, up.assets, up.liabilities, up.netWorth, up.plan], [[], [], [], [], [], { method: 'avalanche', extra: 0 }])
+  const stale = migrate({ ...up, goals: [{ ...up.goals[0], saved: 65 }] }) // a device still on version 3 added 25 its own way
+  assert.deepEqual(stale.contributions.map(c => c.amount), [40, 25]); assert.equal(migrate({ ...up, goals: [{ ...up.goals[0], saved: 40 }] }).contributions.length, 1, 'and its unchanged copy adds nothing')
   assert.equal(migrate({}).categories.length, 12); assert.deepEqual(migrate(null).expenses, [])
-  const newer = { ...v2, netWorth: [{ month: '2026-01', assets: 5 }] } // written by a later version of the app
-  assert.deepEqual((migrate(newer) as unknown as typeof newer).netWorth, newer.netWorth, 'a field this version does not know is kept')
+  const newer = { ...v2, ledger: [{ month: '2026-01', assets: 5 }] } // written by a later version of the app
+  assert.deepEqual((migrate(newer) as unknown as typeof newer).ledger, newer.ledger, 'a field this version does not know is kept')
   const sent = forServer(newer, { ...pickData(migrate(newer)), expenses: [] })
-  assert.deepEqual(sent.netWorth, newer.netWorth, 'and it is sent back to the account untouched'); assert.deepEqual(sent.expenses, [])
+  assert.deepEqual(sent.ledger, newer.ledger, 'and it is sent back to the account untouched'); assert.deepEqual(sent.expenses, [])
   // backup: what is exported comes back the same
   loadState({ ...up, incomes: [{ id: 'i', amount: 5, source: 'Gift', date: '2026-01-02', createdAt: 0 }], rules: { vet: 'x9' }, expenses: [E('1', 10, '2026-01-05', { tags: ['trip'], importId: 'imp' })] })
   const before = pickData(useStore.getState()), json = useStore.getState().exportJSON()
@@ -229,6 +338,25 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   assert.deepEqual(useStore.getState().expenses.map(e => e.id), ['a', 'b', 'c'])
   useUI.getState().dismissToast()
 }
+// add-on lists: add, edit, reorder; net worth keeps one snapshot a month and follows every change, an undo included
+{
+  const { useStore, loadState } = await import('../src/store')
+  const { useUI } = await import('../src/ui-state')
+  const { deleteWithUndo } = await import('../src/lib/undo')
+  const st = useStore.getState
+  loadState({ goals: [], contributions: [], debts: [], payments: [], assets: [], liabilities: [], netWorth: [] })
+  const a = st().addTo('goals', { name: 'A', target: 10, color: '#000' }), b = st().addTo('goals', { name: 'B', target: 10, color: '#000' })
+  st().moveGoal(b.id, -1); st().moveGoal(b.id, -1); assert.deepEqual(st().goals.map(g => g.name), ['B', 'A']); st().patchIn('goals', a.id, { target: 20 }); assert.equal(st().goals[1].target, 20)
+  st().setPlan({ extra: 50 }); assert.deepEqual(st().plan, { method: 'avalanche', extra: 50 })
+  const debt = st().addTo('debts', { name: 'Card', balance: 500, apr: 0, minPayment: 25, startDate: todayISO() })
+  assert.deepEqual(st().netWorth, [], 'a customer with no asset or liability gets no snapshots')
+  const car = st().addTo('assets', { name: 'Car', kind: 'Vehicle', value: 9000 }); st().addTo('assets', { name: 'Cash', kind: 'Cash', value: 1000 })
+  assert.deepEqual(st().netWorth, [{ month: currentMonthKey(), assets: 10000, liabilities: 500 }])
+  st().addTo('payments', { debtId: debt.id, amount: 200, date: todayISO() }); assert.equal(st().netWorth[0].liabilities, 300, 'a payment lowers the liability')
+  deleteWithUndo('assets', car.id); assert.deepEqual(st().netWorth.map(n => n.assets), [1000]); useUI.getState().toast!.action!.run(); assert.deepEqual(st().netWorth.map(n => n.assets), [10000])
+  useUI.getState().dismissToast()
+  loadState({ goals: [], debts: [], payments: [], assets: [], netWorth: [], plan: { method: 'avalanche', extra: 0 } })
+}
 
 // sync against a stand-in for the account service: a failed pull sends nothing, and a field another device wrote survives a push
 {
@@ -236,7 +364,7 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   const { useAccount } = await import('../src/account')
   const { startSync } = await import('../src/lib/sync')
   const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
-  let row: Record<string, unknown> | null = { settings: { currency: 'USD', monthlyLimit: 100, onboarded: true, theme: 'light', monthStartDay: 1, keys: [], firstOpenedAt: Date.now() }, expenses: [E('srv', 7, '2026-01-02')], netWorth: [1] }
+  let row: Record<string, unknown> | null = { settings: { currency: 'USD', monthlyLimit: 100, onboarded: true, theme: 'light', monthStartDay: 1, keys: [], firstOpenedAt: Date.now() }, expenses: [E('srv', 7, '2026-01-02')], ledger: [1] }
   let offline = true, writes = 0
   const service = { from: () => ({
     select: () => ({ eq: () => ({ maybeSingle: async () => (offline ? { data: null, error: new Error('offline') } : { data: row && { state: row }, error: null }) }) }),
@@ -250,9 +378,9 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   offline = false; signIn('u2'); await wait(20)
   assert.equal(useAccount.getState().synced, true); assert.deepEqual(useStore.getState().expenses.map(e => e.id), ['srv'], 'the account\'s copy replaces what was local')
   assert.deepEqual(useStore.getState().incomes, [], 'a copy from the previous version gains the new lists'); assert.equal(writes, 0, 'loading the copy is not a change to send')
-  row = { ...row!, assets: [2] } // another device, on a newer version, writes while this one stays open
+  row = { ...row!, vault: [2] } // another device, on a newer version, writes while this one stays open
   useStore.getState().addIncome({ amount: 5, source: 'Gift', date: '2026-01-03' }); await wait(900)
-  assert.equal(writes, 1); assert.deepEqual([row!.netWorth, row!.assets], [[1], [2]], 'fields this version does not know are sent back, including one written after the pull')
+  assert.equal(writes, 1); assert.deepEqual([row!.ledger, row!.vault], [[1], [2]], 'fields this version does not know are sent back, including one written after the pull')
   assert.equal((row!.incomes as unknown[]).length, 1); assert.deepEqual((row!.expenses as { id: string }[]).map(e => e.id), ['srv'])
 }
 

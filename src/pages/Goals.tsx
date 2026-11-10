@@ -2,50 +2,40 @@ import { useMemo, useState } from 'react'
 import { PlusIcon, ShieldCheckIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
-import { hasModule } from '../lib/access'
-import { MODULES } from '../lib/modules'
-import { currentMonthKey, fmt } from '../lib/money'
-import { essentialsPerMonth, expensesForMonth, monthStats, safeToSave } from '../lib/calc'
-import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Empty, Metric, MetricTray, PageHeader, ProgressRing, Segmented, Select, TableRow } from '../components/ui'
-import Locked from '../components/Locked'
-import GoalList, { GOAL_COLOR, monthlyNeed } from '../components/pro/Goals'
+import { fmt, plural } from '../lib/money'
+import { ESSENTIALS, essentialsPerMonth } from '../lib/calc'
+import { monthlyNeed } from '../lib/goals'
+import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Empty, Metric, MetricTray, ProgressRing, Segmented, Select, TableRow } from '../components/ui'
+import { AddonPage, type Screens } from '../components/Locked'
+import GoalList from '../components/pro/Goals'
+import GoalPlan from '../components/pro/GoalPlan'
+import Challenges from '../components/pro/Challenges'
+import { GOAL_COLOR, useGoals, useSafeToSave } from '../components/goals/shared'
 
-const ESSENTIALS = ['housing', 'bills', 'groceries', 'transport', 'health']
 const EF_KEY = 'golden-tool:ef-goal'
 const readEf = () => { try { return localStorage.getItem(EF_KEY) ?? '' } catch { return '' } }
 
-function useNumbers() {
-  const expenses = useStore(s => s.expenses)
-  const limit = useStore(s => s.settings.monthlyLimit)
-  const currency = useStore(s => s.settings.currency)
-  const recurring = useStore(s => s.recurring)
-  return useMemo(() => {
-    const mk = currentMonthKey()
-    const ess = essentialsPerMonth(expenses)
-    return { currency, expenses, ess, sts: safeToSave(monthStats(expensesForMonth(expenses, mk), mk, limit, recurring)) }
-  }, [expenses, limit, currency, recurring])
-}
-
 function GoalsTab() {
-  const goals = useStore(s => s.goals)
-  const { currency, sts } = useNumbers()
+  const { goals, currency } = useGoals()
+  const { safe } = useSafeToSave()
   const m0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
   return (
-    <div className="space-y-6">
+    <GoalList tray={
       <MetricTray>
-        <Metric label="Safe to save" value={<AnimatedNumber value={sts} format={m0} />} sub="This month, under the monthly limit" />
-        <Metric label="Saved so far" value={<AnimatedNumber value={goals.reduce((s, g) => s + g.saved, 0)} format={m0} />} sub={`${goals.length} goal${goals.length === 1 ? '' : 's'}`} />
+        <Metric label="Safe to save" value={<AnimatedNumber value={safe} format={m0} />} sub="This month, under the monthly limit" />
+        <Metric label="Saved so far" value={<AnimatedNumber value={goals.reduce((s, g) => s + g.saved, 0)} format={m0} />} sub={plural(goals.length, 'goal')} />
         <Metric label="Needed per month" value={<AnimatedNumber value={goals.reduce((s, g) => s + monthlyNeed(g), 0)} format={m0} />} sub="To meet every deadline" />
       </MetricTray>
-      <GoalList />
-    </div>
+    } />
   )
 }
 
 function EmergencyTab() {
-  const goals = useStore(s => s.goals)
+  const { goals, currency } = useGoals()
   const categories = useStore(s => s.categories)
-  const { currency, expenses, ess, sts } = useNumbers()
+  const expenses = useStore(s => s.expenses)
+  const ess = useMemo(() => essentialsPerMonth(expenses), [expenses])
+  const sts = useSafeToSave().safe
   const [months, setMonths] = useState<'3' | '6'>('3')
   const [efId, setEfId] = useState(readEf)
   const pick = (id: string) => { setEfId(id); try { localStorage.setItem(EF_KEY, id) } catch { /* private mode: selection lasts this session */ } }
@@ -54,7 +44,7 @@ function EmergencyTab() {
   const n = Number(months)
   const target = ess * n
   const goal = goals.find(g => g.id === efId)
-  const create = () => pick(useStore.getState().addGoal({ name: 'Emergency fund', target, saved: 0, color: GOAL_COLOR }).id)
+  const create = () => pick(useStore.getState().addTo('goals', { name: 'Emergency fund', target, color: GOAL_COLOR }).id)
   const pct = goal && target > 0 ? Math.min(100, Math.round((goal.saved / target) * 100)) : 0
   const left = goal ? Math.max(0, target - goal.saved) : 0
 
@@ -119,16 +109,13 @@ function EmergencyTab() {
   )
 }
 
+const SCREENS: Screens = {
+  goals: ['Goals', 'Open a goal for its contributions, its pace against the deadline and its milestones.', GoalsTab],
+  'goals-plan': ['Plan', 'What you can save this month, split over your goals in the order that matters to you.', GoalPlan],
+  'goals-challenges': ['Challenges', 'A fixed pattern to follow for a while: 52 weeks of growing amounts, or seven days without extras.', Challenges],
+  'goals-emergency': ['Emergency fund', 'Three to six months of essential expenses, from what you actually spend.', EmergencyTab],
+}
+
 export default function Goals() {
-  const emergency = useUI(s => s.tab === 'goals-emergency')
-  const unlocked = useStore(s => hasModule(s.settings, 'goals'))
-  const body = emergency ? <EmergencyTab /> : <GoalsTab />
-  return (
-    <>
-      {emergency
-        ? <PageHeader title="Emergency fund" subtitle="Three to six months of essential expenses, from what you actually spend." />
-        : <PageHeader title="Goals" subtitle="Each goal shows the amount to set aside per month." />}
-      {unlocked ? body : <Locked module={MODULES.goals}>{body}</Locked>}
-    </>
-  )
+  return <AddonPage kind="goals" screens={SCREENS} />
 }

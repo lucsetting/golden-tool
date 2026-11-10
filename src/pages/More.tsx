@@ -1,12 +1,11 @@
 import { AdjustmentsHorizontalIcon, ArrowsRightLeftIcon, ArrowUturnLeftIcon, ChartBarIcon, ChevronRightIcon, Cog6ToothIcon, LockClosedIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { useUI, type Tab } from '../ui-state'
-import { MODULES, type ModuleKind } from '../lib/modules'
+import { MODULES } from '../lib/modules'
 import { hasModule } from '../lib/access'
 import { Card, Chip, PageHeader, TableRow } from '../components/ui'
 import { MODULE_ICON } from '../components/Layout'
 
-const ABOUT: Record<ModuleKind, string> = { debts: 'Debt payoff plan', goals: 'Goals and emergency fund', reports: 'Yearly report and export' }
 const tile = 'h-8 w-8 shrink-0 rounded-lg bg-muted text-foreground inline-flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4'
 const chevron = <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
 
@@ -41,7 +40,7 @@ export default function More() {
                 <span className={tile}><Icon /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-foreground truncate">{m.name}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5 truncate">{ABOUT[m.kind]}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 truncate">{m.about}</span>
                 </span>
                 {hasModule(settings, m.kind) ? <Chip tone="outline">Active</Chip> : <LockClosedIcon aria-label="Locked" className="h-4 w-4 shrink-0 text-muted-foreground" />}
                 {chevron}

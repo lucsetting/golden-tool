@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react'
-import { PlusIcon } from '@heroicons/react/16/solid'
+import { ArrowsRightLeftIcon, CalendarDaysIcon, PlusIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../../store'
 import { useUI } from '../../ui-state'
 import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Empty, Metric, MetricTray, ProgressBar, Select, TableHead, TableRow } from '../ui'
 import MonthBars from './MonthBars'
+import DayHeat from '../charts/DayHeat'
 import { byCategory, expensesForMonth, total } from '../../lib/calc'
-import { currentMonthKey, fmt } from '../../lib/money'
+import { yearCompare } from '../../lib/vision'
+import { currentMonthKey, fmt, plural } from '../../lib/money'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString('en-US', { month: 'long' }))
 
-/** Yearly report: the year's total over twelve bars, three numbers, then the categories. */
+/** Yearly report: the year's total over twelve bars, three numbers, the year before beside it, every day as a heatmap, then the categories. */
 export default function Reports() {
   const expenses = useStore(s => s.expenses)
   const categories = useStore(s => s.categories)
@@ -28,7 +30,9 @@ export default function Reports() {
       slices: byCategory(expenses.filter(e => e.date.startsWith(year)), categories),
     }
   }, [expenses, categories, year])
+  const yc = useMemo(() => yearCompare(expenses, year), [expenses, year])
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
+  const diff = (n: number | null) => (n === null ? <span className="text-muted-foreground">—</span> : <span className={n > 0 ? 'text-destructive' : n < 0 ? 'text-success' : 'text-muted-foreground'}>{n > 0 ? '+' : n < 0 ? '−' : ''}{f0(Math.abs(n))}</span>)
 
   return (
     <div className="space-y-6">
@@ -56,6 +60,33 @@ export default function Reports() {
             <Metric label="Lowest month" value={low.name} sub={f0(low.value)} />
             <Metric label="Highest month" value={high.name} sub={f0(high.value)} />
           </MetricTray>
+          <Card>
+            <CardHeader title={`${year} against ${yc.prevYear}`} icon={<ArrowsRightLeftIcon className="h-4 w-4 text-muted-foreground shrink-0" />} />
+            {!yc.hasPrev ? <p className="px-4 py-3 text-sm text-muted-foreground leading-5">No expenses in {yc.prevYear} to compare with. Once two years have expenses, each month shows here beside the same month a year earlier.</p> : (
+              <div className="tabular-nums">
+                <TableHead><span className="flex-1">Month</span><span className="w-20 sm:w-24 text-right">{year}</span><span className="w-20 sm:w-24 text-right">{yc.prevYear}</span><span className="w-20 sm:w-24 text-right">Difference</span></TableHead>
+                {yc.rows.map(r => (
+                  <div key={r.month} className="h-10 px-4 flex items-center gap-3 text-sm border-b border-border">
+                    <span className="flex-1 text-foreground"><span className="sm:hidden">{MONTHS[r.month].slice(0, 3)}</span><span className="max-sm:hidden">{MONTHS[r.month]}</span></span>
+                    <span className="w-20 sm:w-24 text-right">{r.now === null ? <span className="text-muted-foreground">—</span> : f0(r.now)}</span>
+                    <span className="w-20 sm:w-24 text-right text-muted-foreground">{r.prev > 0 ? f0(r.prev) : '—'}</span>
+                    <span className="w-20 sm:w-24 text-right">{diff(r.diff)}</span>
+                  </div>
+                ))}
+                <div className="h-11 px-4 flex items-center gap-3 text-sm bg-muted/60">
+                  <span className="flex-1 text-foreground">Total</span>
+                  <span className="w-20 sm:w-24 text-right">{f0(yc.now)}</span>
+                  <span className="w-20 sm:w-24 text-right text-muted-foreground">{f0(yc.prev)}</span>
+                  <span className="w-20 sm:w-24 text-right">{diff(yc.diff)}</span>
+                </div>
+                {yc.months < 12 && <p className="px-4 py-3 text-xs text-muted-foreground border-t border-border">The total covers the {plural(yc.months, 'month')} that have expenses in both years.</p>}
+              </div>
+            )}
+          </Card>
+          <Card>
+            <CardHeader title="Day by day" icon={<CalendarDaysIcon className="h-4 w-4 text-muted-foreground shrink-0" />} right={<span className="text-xs text-muted-foreground">{year}</span>} />
+            <DayHeat expenses={expenses} year={year} currency={currency} />
+          </Card>
           <Card>
             <CardHeader title="By category this year" />
             <TableHead>

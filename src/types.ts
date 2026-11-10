@@ -8,6 +8,8 @@ export interface Category {
   color: string // hex
   budget?: number // optional budget for this category
   hidden?: boolean // left out of the pickers; what was filed under it stays
+  rollover?: boolean // Golden Vision: what the budget left unused last month is added to this month
+  group?: 'needs' | 'wants' // for the 50/30/20 preset; unset follows the built-in default
 }
 
 export interface Expense {
@@ -45,22 +47,64 @@ export interface Income {
   createdAt: number
 }
 
+/** A goal. The order of the goal list is the priority. What is saved is the sum of its contributions. */
 export interface Goal {
   id: string
   name: string
   target: number
-  saved: number
   deadline?: ISODate
   color: string
+}
+export interface Contribution {
+  id: string
+  goalId: string
+  amount: number // negative when the customer took money back out
+  date: ISODate
+  /** where it came from when the customer did not type it: saved before contributions existed, the automatic plan, a challenge step */
+  source?: 'opening' | 'plan' | 'challenge'
+}
+/** `done` holds the completed weeks of a 52-week challenge. A no-spend week is checked from the expenses. */
+export interface Challenge {
+  id: string
+  kind: '52week' | 'nospend'
+  start: ISODate
+  goalId?: string // 52-week: the goal that receives each week's amount
+  base?: number // 52-week: week n asks for n times this
+  essentials?: string[] // no-spend week: the categories still allowed
+  done: number[]
+  ended?: ISODate // ended early by the customer
 }
 
 export interface Debt {
   id: string
   name: string
+  /** What was owed on `startDate`. What is owed today comes from `owed()`: interest added, payments taken off. */
   balance: number
+  startDate?: ISODate
   apr: number // percent, e.g. 24.99
   minPayment: number
 }
+export interface Payment {
+  id: string
+  debtId: string
+  amount: number
+  date: ISODate
+  correction?: boolean // the customer set the balance to match a statement; negative when the balance went up
+}
+export interface DebtPlan {
+  method: 'snowball' | 'avalanche'
+  extra: number // on top of the minimum payments, every month
+  oneOff?: { amount: number; month: MonthKey }
+}
+
+/** An asset or a liability in net worth. */
+export interface Holding {
+  id: string
+  name: string
+  kind: string
+  value: number
+}
+export interface NetWorthSnapshot { month: MonthKey; assets: number; liabilities: number }
 
 export type Theme = 'dark' | 'light' | 'system'
 

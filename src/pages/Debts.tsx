@@ -1,23 +1,22 @@
 import { useMemo } from 'react'
-import { useStore } from '../store'
 import { useUI } from '../ui-state'
-import { hasModule } from '../lib/access'
-import { MODULES } from '../lib/modules'
-import { MAX_MONTHS, paymentSchedule } from '../lib/calc'
-import { fmt, monthAhead } from '../lib/money'
-import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, Metric, MetricTray, PageHeader, TableHead } from '../components/ui'
-import Locked from '../components/Locked'
+import { neverPaid, simulate } from '../lib/debts'
+import { fmt, monthAhead, plural } from '../lib/money'
+import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, Metric, MetricTray, TableHead } from '../components/ui'
+import { AddonPage, type Screens } from '../components/Locked'
 import DebtPlanner from '../components/pro/DebtPlanner'
-import { useDebtPrefs } from '../components/debts/prefs'
+import WhatIf from '../components/pro/WhatIf'
+import Payments from '../components/pro/Payments'
+import { useDebts } from '../components/debts/shared'
 
 const MAX_ROWS = 120
 
 function MonthByMonth() {
-  const debts = useStore(s => s.debts)
-  const currency = useStore(s => s.settings.currency)
-  const extra = useDebtPrefs(s => s.extra)
-  const method = useDebtPrefs(s => s.method)
-  const rows = useMemo(() => paymentSchedule(debts, extra, method), [debts, extra, method])
+  const { now, plan, currency } = useDebts()
+  const debts = useMemo(() => now.filter(d => d.balance > 0), [now])
+  const { extra, method } = plan
+  const sim = useMemo(() => simulate(debts, plan), [debts, plan])
+  const rows = sim.rows, never = neverPaid(sim)
   const sum = useMemo(() => rows.reduce((s, r) => s + r.total, 0), [rows])
   const f = (n: number) => fmt(n, currency)
   const shown = rows.slice(0, MAX_ROWS)
@@ -29,14 +28,14 @@ function MonthByMonth() {
   )
 
   if (debts.length === 0) {
-    return <Card><Empty title="No debts yet" text="The months appear here once the payoff plan has at least one debt." action={<Button variant="primary" className="max-sm:px-4" onClick={() => useUI.getState().setTab('debts')}>Open payoff plan</Button>} /></Card>
+    return <Card><Empty title="No debts to pay" text="The months appear here once the payoff plan has at least one debt." action={<Button variant="primary" className="max-sm:px-4" onClick={() => useUI.getState().setTab('debts')}>Open payoff plan</Button>} /></Card>
   }
   return (
     <div className="space-y-6">
       <MetricTray>
         <Metric label="First month" value={<AnimatedNumber value={rows[0]?.total ?? 0} format={f} />} sub={monthAhead(1)} />
-        <Metric label="Total to pay" value={<AnimatedNumber value={sum} format={f} />} sub={`Over ${rows.length} month${rows.length === 1 ? '' : 's'}`} />
-        <Metric label="Last month" tone={rows.length >= MAX_MONTHS ? 'bad' : undefined} value={rows.length >= MAX_MONTHS ? 'Not reached' : monthAhead(rows.length)} sub={rows.length >= MAX_MONTHS ? 'Payments do not cover the interest' : `In ${rows.length} month${rows.length === 1 ? '' : 's'}`} />
+        <Metric label="Total to pay" value={<AnimatedNumber value={sum} format={f} />} sub={`Over ${plural(rows.length, 'month')}`} />
+        <Metric label="Last month" tone={never ? 'bad' : undefined} value={never ? 'Not reached' : monthAhead(rows.length)} sub={never ? 'Payments do not cover the interest' : `In ${plural(rows.length, 'month')}`} />
       </MetricTray>
       <Card>
         <CardHeader title="Month by month"
@@ -76,16 +75,13 @@ function MonthByMonth() {
   )
 }
 
+const SCREENS: Screens = {
+  debts: ['Payoff plan', 'Every debt in one plan: when each reaches zero, what it costs, and where you stand.', DebtPlanner],
+  'debts-whatif': ['What-if', 'Try an extra amount or a one-off payment and see the new debt-free date before you commit.', WhatIf],
+  'debts-payments': ['Payments', 'What you actually paid. Each payment lowers its debt and counts against the plan.', Payments],
+  'debts-schedule': ['Month by month', 'What the payoff plan pays each month, until the last one.', MonthByMonth],
+}
+
 export default function Debts() {
-  const byMonth = useUI(s => s.tab === 'debts-schedule')
-  const unlocked = useStore(s => hasModule(s.settings, 'debts'))
-  const body = byMonth ? <MonthByMonth /> : <DebtPlanner />
-  return (
-    <>
-      {byMonth
-        ? <PageHeader title="Month by month" subtitle="What the payoff plan pays each month, until the last one." />
-        : <PageHeader title="Payoff plan" subtitle="Snowball pays the smallest balance first. Avalanche pays the highest rate first." />}
-      {unlocked ? body : <Locked module={MODULES.debts}>{body}</Locked>}
-    </>
-  )
+  return <AddonPage kind="debts" screens={SCREENS} />
 }
