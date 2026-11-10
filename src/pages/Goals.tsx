@@ -13,6 +13,7 @@ import Challenges from '../components/pro/Challenges'
 import { GOAL_COLOR, useGoals, useSafeToSave } from '../components/goals/shared'
 
 const EF_KEY = 'golden-tool:ef-goal'
+const EF_NAME = 'Emergency fund'
 const readEf = () => { try { return localStorage.getItem(EF_KEY) ?? '' } catch { return '' } }
 
 function GoalsTab() {
@@ -43,8 +44,9 @@ function EmergencyTab() {
   const f = (n: number) => fmt(n, currency)
   const n = Number(months)
   const target = ess * n
-  const goal = goals.find(g => g.id === efId)
-  const create = () => pick(useStore.getState().addTo('goals', { name: 'Emergency fund', target, color: GOAL_COLOR }).id)
+  // The choice is kept in this browser only. On another device the goal this screen creates is found by its name.
+  const goal = goals.find(g => g.id === efId) ?? goals.find(g => g.name === EF_NAME)
+  const create =() => pick(useStore.getState().addTo('goals', { name: EF_NAME, target, color: GOAL_COLOR }).id)
   const pct = goal && target > 0 ? Math.min(100, Math.round((goal.saved / target) * 100)) : 0
   const left = goal ? Math.max(0, target - goal.saved) : 0
 
