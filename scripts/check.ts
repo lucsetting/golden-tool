@@ -141,7 +141,7 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   assert.equal(categorise('SAFEWAY #1234, SEATTLE', {}, all), 'groceries'); assert.equal(categorise('UBER EATS 22', {}, all), 'dining'); assert.equal(categorise('UBER TRIP', {}, all), 'transport')
   assert.equal(categorise('SAFEWAY #1234', { safeway: 'pets' }, all), 'pets', 'a rule beats the built-in words')
   assert.equal(categorise('SAFEWAY', { safeway: 'gone' }, all), 'groceries', 'a rule for a deleted category is ignored'); assert.equal(categorise('XYZ LLC', {}, all), 'other')
-  assert.equal(categorise('NETFLIX', {}, all), 'other', 'no built-in category to put it in')
+  assert.equal(categorise('NETFLIX', {}, all), 'other', 'no built-in category to put it in'); assert.equal(normName('NETFLIX.COM'), 'netflix com')
 }
 
 // weekly recap and streak

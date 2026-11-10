@@ -67,7 +67,7 @@ function BillRow({ r, cat, currency, onEdit, yearly }: { r: Recurring; cat: Pick
         <CategoryBadge category={cat} size={32} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2"><span className="sr-only">Edit </span><span className="text-foreground truncate">{r.name}</span>{!r.active && <Chip>Paused</Chip>}{r.subscription && yearly === undefined && <Chip>Subscription</Chip>}</span>
-          <span className="block text-xs text-muted-foreground mt-0.5 truncate">Day {r.dayOfMonth}<span className="max-sm:hidden"> · {cat.name}</span>{yearly !== undefined && <span className="sm:hidden"> · {fmt(r.amount, currency)} a month</span>}</span>
+          <span className="block text-xs text-muted-foreground mt-0.5 truncate">{yearly !== undefined && <span className="sm:hidden">{fmt(r.amount, currency)} a month</span>}<span className={cx(yearly !== undefined && 'max-sm:hidden')}>Day {r.dayOfMonth}</span><span className="max-sm:hidden"> · {cat.name}</span></span>
         </span>
         {yearly !== undefined && <span className="max-sm:hidden w-28 text-right text-muted-foreground tabular-nums">{fmt(r.amount, currency)}</span>}
         <span className="sm:w-28 text-right text-foreground tabular-nums">{fmt(yearly ?? r.amount, currency)}</span>
@@ -76,7 +76,7 @@ function BillRow({ r, cat, currency, onEdit, yearly }: { r: Recurring; cat: Pick
       <label className="h-11 w-11 shrink-0 inline-flex items-center justify-center cursor-pointer">
         <Switch checked={r.active} onChange={v => useStore.getState().updateRecurring(r.id, { active: v })} label={`${r.name} active`} />
       </label>
-      <IconButton label={`Remove ${r.name}`} className="shrink-0" onClick={() => deleteWithUndo('recurring', r.id, 'Removed')}><TrashIcon /></IconButton>
+      <IconButton label={`Remove ${r.name}`} className={cx('shrink-0', yearly !== undefined && 'max-sm:hidden')} onClick={() => deleteWithUndo('recurring', r.id, 'Removed')}><TrashIcon /></IconButton>
     </TableRow>
   )
 }

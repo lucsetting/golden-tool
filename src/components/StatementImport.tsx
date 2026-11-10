@@ -119,7 +119,7 @@ export default function StatementImport() {
               </Select>
             </Field>
             <Field label="Date format">
-              <Segmented block value={dayFirst ? 'd' : 'm'} onChange={v => setDayFirst(v === 'd')} options={[{ value: 'm', label: 'Month first' }, { value: 'd', label: 'Day first' }]} />
+              <Segmented block value={dayFirst ? 'd' : 'm'} onChange={v => setDayFirst(v === 'd')} options={[{ value: 'm', label: 'MM/DD' }, { value: 'd', label: 'DD/MM' }]} />
             </Field>
             {two && pick('Money out', 'debit')}
             {two && pick('Money in', 'credit')}
@@ -149,7 +149,7 @@ export default function StatementImport() {
             </div>
             {rows.length === 0 && <p className="px-3 py-6 text-sm text-muted-foreground text-center">No line has both a date and an amount yet. Check the columns above.</p>}
             {view.slice(0, shown).map(r => (
-              <div key={r.line} className={cx('px-3 py-2 flex items-center gap-3 text-sm border-b border-border last:border-b-0', !r.on && 'bg-muted/30')}>
+              <div key={r.line} className={cx('px-3 py-2 flex flex-wrap items-center gap-x-3 text-sm border-b border-border last:border-b-0', !r.on && 'bg-muted/30')}>
                 <label className="h-11 w-8 -my-2 shrink-0 inline-flex items-center justify-center cursor-pointer">
                   <input type="checkbox" className="h-4 w-4 accent-[var(--primary)]" aria-label={`Import ${r.name || 'this line'}`} checked={r.on} disabled={r.dup || (r.income && !withIncome)} onChange={() => toggle(r.line)} />
                 </label>
@@ -157,10 +157,13 @@ export default function StatementImport() {
                   <div className="flex items-center gap-2"><span className="truncate text-foreground">{r.name || 'No description'}</span>{r.dup && <Chip>Already here</Chip>}{r.income && <Chip tone="good">Income</Chip>}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">{dateLabel(r.date)}</div>
                 </div>
+                {/* On a phone the category takes its own row under the name. */}
                 {!r.income && !r.dup && (
-                  <Select aria-label={`Category for ${r.name}`} className="w-32! sm:w-40! max-sm:text-sm" value={r.categoryId} onChange={e => setCats({ ...cats, [r.line]: e.target.value })}>
-                    {categories.filter(c => !c.hidden || c.id === r.categoryId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Select>
+                  <div className="max-sm:order-last max-sm:basis-full max-sm:pl-11 max-sm:pt-1.5 sm:w-40">
+                    <Select aria-label={`Category for ${r.name}`} value={r.categoryId} onChange={e => setCats({ ...cats, [r.line]: e.target.value })}>
+                      {categories.filter(c => !c.hidden || c.id === r.categoryId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Select>
+                  </div>
                 )}
                 <span className={cx('w-20 sm:w-24 shrink-0 text-right tabular-nums', r.on ? 'text-foreground' : 'text-muted-foreground')}>{fmt(Math.abs(r.amount), currency)}</span>
               </div>

@@ -279,7 +279,7 @@ export function budgetState(spent: number, budget?: number): BudgetState {
 
 /** A merchant name as rules store it: lower case, digits and punctuation gone, single spaces. */
 export function normName(s: string): string {
-  return s.toLowerCase().replace(/['’.]/g, '').replace(/[^\p{L}]+/gu, ' ').trim()
+  return s.toLowerCase().replace(/['’]/g, '').replace(/[^\p{L}]+/gu, ' ').trim()
 }
 /** The category remembered for a name. A longer text (a bank line) takes the longest rule it contains as whole words. */
 export function ruleFor(rules: Record<string, string>, name: string): string | undefined {
