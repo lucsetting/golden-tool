@@ -52,7 +52,8 @@ export default function App() {
     const resolved = settings.theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : settings.theme
     document.documentElement.dataset.theme = resolved
   }, [settings.theme])
-  useEffect(() => { if (!readOnly) applyRecurring() }, [applyRecurring, readOnly])
+  // After the account's copy has arrived: a sweep before it would be overwritten by the pull.
+  useEffect(() => { if (synced && !readOnly) applyRecurring() }, [applyRecurring, readOnly, synced])
 
   if (hasAccounts && !ready) return <div className="min-h-full bg-background flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
   if (hasAccounts && !session) return <SignIn />

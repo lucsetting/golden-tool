@@ -213,13 +213,15 @@ export function dayIn(day: number, mk: string): ISODate {
 }
 /** What repeats, has come due and is not in the lists yet: bills as expenses, repeating income as income.
  *  `recurringApplied` holds the months already swept (YYYY-MM) and one key per posting (id@YYYY-MM),
- *  so a posting the customer deleted is not posted again. Months nobody opened the app in are caught up, a year back at most. */
+ *  so a posting the customer deleted is not posted again. The sweep starts at the last month swept, because bills later in
+ *  that month had not come due yet, and catches up the months nobody opened the app in.
+ *  ponytail: bills reach back 11 months and repeating income 23; older gaps stay empty, raise the numbers if customers ask. */
 export function postings(s: { expenses: Expense[]; recurring: Recurring[]; incomes: Income[]; recurringApplied: string[] }, today: ISODate) {
   const cur = monthKey(today), done = new Set(s.recurringApplied)
   const last = s.recurringApplied.filter(k => k.length === 7).sort().pop()
   const from = (start: string, back: number) => (start < shiftMonth(cur, -back) ? shiftMonth(cur, -back) : start)
   const expenses: Omit<Expense, 'id' | 'createdAt'>[] = [], incomes: Omit<Income, 'id' | 'createdAt'>[] = [], applied: string[] = []
-  for (let mk = from(last && last < cur ? shiftMonth(last, 1) : cur, 11); mk <= cur; mk = shiftMonth(mk, 1)) {
+  for (let mk = from(last && last < cur ? last : cur, 11); mk <= cur; mk = shiftMonth(mk, 1)) {
     for (const r of s.recurring) {
       const key = `${r.id}@${mk}`, date = dayIn(r.dayOfMonth, mk)
       if (!r.active || date > today || done.has(key)) continue

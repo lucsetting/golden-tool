@@ -100,12 +100,17 @@ export function loadState(d: Partial<Data>) {
   loading = true
   try { useStore.setState(d) } finally { loading = false }
 }
-/** The one read-only guard: once included access ended, settings (theme, codes) still save and no data does. */
+/** What still saves once included access ended: how the app looks, a code that lifts the block, and the streak record the app keeps itself. */
+const OPEN_SETTINGS = ['theme', 'keys', 'longestStreak']
+/** The one read-only guard: once included access ended, nothing the customer entered can change. */
 const guard = <M extends [StoreMutatorIdentifier, unknown][]>(f: StateCreator<State, [], M>) => ((set, get, api) => {
   const guarded = ((partial, replace) => {
     const next = typeof partial === 'function' ? partial(get()) : partial
-    if (!loading && get() && isReadOnly(get().settings) && Object.keys(next).some(k => k !== 'settings')) {
-      return useUI.getState().showToast('Included access ended. Nothing was changed.', 'err')
+    const now = get()
+    if (!loading && now && isReadOnly(now.settings)) {
+      const settings = { ...now.settings, ...(next as Partial<State>).settings } as Record<string, unknown>
+      const closed = Object.keys(settings).some(k => settings[k] !== (now.settings as unknown as Record<string, unknown>)[k] && !OPEN_SETTINGS.includes(k))
+      if (closed || Object.keys(next).some(k => k !== 'settings')) return useUI.getState().refuse()
     }
     set(next as State, replace as false)
   }) as typeof set

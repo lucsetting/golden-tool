@@ -46,13 +46,14 @@ export default function Activity() {
   const counts = useMemo(() => { const m = new Map<string, number>(); all.forEach(e => m.set(e.categoryId, (m.get(e.categoryId) ?? 0) + 1)); return m }, [all])
   const catById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories])
   const activeCat = cat === 'all' || counts.has(cat) ? cat : 'all'
-  const tags = useMemo(() => { const m = new Map<string, number>(); all.forEach(e => e.tags?.forEach(t => m.set(t, (m.get(t) ?? 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]) }, [all])
+  // Tags are counted over every month: a trip or a project does not stop at the end of one.
+  const tags = useMemo(() => { const m = new Map<string, number>(); expenses.forEach(e => e.tags?.forEach(t => m.set(t, (m.get(t) ?? 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]) }, [expenses])
   const activeTag = tags.some(([t]) => t === tag) ? tag : ''
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     const weekStart = addDays(todayISO(), -6)
-    // Last 7 days ignores the month on screen: on the 3rd it still reaches back into the previous month.
-    const l = (scope === 'week' ? expenses.filter(e => e.date >= weekStart) : all).filter(e =>
+    // Last 7 days ignores the month on screen: on the 3rd it still reaches back into the previous month. So does a tag.
+    const l = (scope === 'week' ? expenses.filter(e => e.date >= weekStart) : activeTag ? expenses : all).filter(e =>
       (activeCat === 'all' || e.categoryId === activeCat) &&
       (scope !== 'bills' || !!e.recurringId) &&
       (!activeTag || !!e.tags?.includes(activeTag)) &&
@@ -122,7 +123,7 @@ export default function Activity() {
 
       <Card>
         <CardHeader title="Expenses" icon={<ListBulletIcon className="h-4 w-4 text-muted-foreground shrink-0" />}
-          right={list.length > 0 && <span className="text-sm text-muted-foreground tabular-nums">{list.length === all.length ? list.length : `${list.length} of ${all.length}`} · {fmt(total(list), currency)}</span>} />
+          right={list.length > 0 && <span className="text-sm text-muted-foreground tabular-nums">{activeTag ? `#${activeTag}, all months · ${list.length}` : list.length === all.length ? list.length : `${list.length} of ${all.length}`} · {fmt(total(list), currency)}</span>} />
         {list.length === 0 ? (
           all.length === 0
             ? <Empty title={`No expenses in ${monthLabel(month)}`} text="Add an expense and it is listed here with its category, date and amount." action={addBtn()} />

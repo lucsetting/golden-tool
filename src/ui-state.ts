@@ -45,10 +45,12 @@ interface UIState {
   toast?: { msg: string; kind?: 'ok' | 'err'; action?: ToastAction }
   showToast: (msg: string, kind?: 'ok' | 'err', action?: ToastAction) => void
   dismissToast: () => void
+  /** Tells the customer a change was not saved because included access ended. */
+  refuse: () => void
 }
 export interface ToastAction { label: string; run: () => void }
 let toastTimer: ReturnType<typeof setTimeout> | undefined
-let errorAt = 0
+let refused = false
 
 export const useUI = create<UIState>()((set, get) => ({
   tab: 'home',
@@ -61,12 +63,12 @@ export const useUI = create<UIState>()((set, get) => ({
   importing: false,
   setImporting: importing => set({ importing }),
   showToast: (msg, kind = 'ok', action) => {
-    // A refused write is followed by its caller's "Saved": the error stays, the success message is dropped.
-    if (kind === 'ok' && get().toast?.kind === 'err' && Date.now() - errorAt < 1000) return
-    if (kind === 'err') errorAt = Date.now()
+    // A refused write is followed, in the same click, by its caller's "Saved": the refusal stays and that message is dropped.
+    if (kind === 'ok' && refused) return
     clearTimeout(toastTimer)
     set({ toast: { msg, kind, action } })
     toastTimer = setTimeout(() => set({ toast: undefined }), action ? 6000 : 2400)
   },
   dismissToast: () => { clearTimeout(toastTimer); set({ toast: undefined }) },
+  refuse: () => { get().showToast('Included access ended. Nothing was changed.', 'err'); refused = true; setTimeout(() => { refused = false }) },
 }))

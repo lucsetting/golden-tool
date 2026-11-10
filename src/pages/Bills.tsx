@@ -3,10 +3,9 @@ import { ArrowPathIcon, CalendarDaysIcon, ClockIcon, PlusIcon, TrashIcon } from 
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
 import { OTHER, dayIn, dueSoon, subscriptions, total } from '../lib/calc'
-import { currentMonthKey, dateLabel, daysInMonth, fmt, monthLabel, todayISO } from '../lib/money'
+import { currentMonthKey, dateLabel, daysInMonth, fmt, monthLabel, parseAmount, plural, todayISO } from '../lib/money'
 import { deleteWithUndo } from '../lib/undo'
 import type { Category, Recurring } from '../types'
-import { parseAmount } from '../components/ExpenseSheet'
 import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Chip, Dialog, Empty, Field, IconButton, Input, Metric, MetricTray, PageHeader, Segmented, Select, Switch, TableHead, TableRow, cx } from '../components/ui'
 
 type View = 'list' | 'calendar' | 'subscriptions'
@@ -16,7 +15,7 @@ function BillDialog({ bill, onClose }: { bill?: Recurring; onClose: () => void }
   const categories = useStore(s => s.categories)
   const [amount, setAmount] = useState(bill ? String(bill.amount) : '')
   const [name, setName] = useState(bill?.name ?? '')
-  const [cat, setCat] = useState(bill?.categoryId ?? 'bills')
+  const [cat, setCat] = useState(() => bill?.categoryId ?? (categories.find(c => c.id === 'bills' && !c.hidden) ?? categories.find(c => !c.hidden))?.id ?? 'other')
   const [day, setDay] = useState(String(bill?.dayOfMonth ?? Number(todayISO().slice(8))))
   const [subscription, setSubscription] = useState(!!bill?.subscription)
   const [tried, setTried] = useState(false)
@@ -134,12 +133,12 @@ export default function Bills() {
 
   return (
     <div className="space-y-6 pb-6">
-      <PageHeader title="Bills" subtitle="Fixed costs that add themselves as an expense on their day, every month." actions={add()} />
+      <PageHeader title="Bills" subtitle="Each bill adds itself as an expense on its day, every month." actions={add()} />
 
       <MetricTray>
         <Metric label="Bills per month" icon={<ArrowPathIcon />} value={<AnimatedNumber value={total(active)} format={f0} />} sub={`${active.length} active${recurring.length > active.length ? `, ${recurring.length - active.length} paused` : ''}`} />
-        <Metric label="Due in the next 7 days" icon={<ClockIcon />} value={<AnimatedNumber value={total(due.map(d => d.bill))} format={f0} />} sub={due.length ? `${due.length} ${due.length === 1 ? 'bill' : 'bills'}, first ${dateLabel(due[0].date).replace('Tomorrow', 'tomorrow')}` : 'Nothing due'} />
-        <Metric label="Subscriptions per year" icon={<CalendarDaysIcon />} value={<AnimatedNumber value={subs.yearly} format={f0} />} sub={`${subs.items.length} ${subs.items.length === 1 ? 'subscription' : 'subscriptions'}, ${f0(subs.monthly)} a month`} />
+        <Metric label="Due in the next 7 days" icon={<ClockIcon />} value={<AnimatedNumber value={total(due.map(d => d.bill))} format={f0} />} sub={due.length ? `${plural(due.length, 'bill')}, first ${dateLabel(due[0].date).replace('Tomorrow', 'tomorrow')}` : 'Nothing due'} />
+        <Metric label="Subscriptions per year" icon={<CalendarDaysIcon />} value={<AnimatedNumber value={subs.yearly} format={f0} />} sub={`${plural(subs.items.length, 'subscription')}, ${f0(subs.monthly)} a month`} />
       </MetricTray>
 
       {recurring.length === 0 ? (

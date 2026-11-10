@@ -1,16 +1,14 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
-import { addDays, daysInMonth, todayISO } from '../lib/money'
+import { addDays, daysInMonth, parseAmount, todayISO } from '../lib/money'
 import { ruleFor } from '../lib/calc'
 import { deleteWithUndo } from '../lib/undo'
-import { Button, Dialog, Field, Input, Switch, cx, inputCls } from './ui'
+import { Button, Dialog, Field, Input, Switch, cx, dialogFooterCls, inputCls } from './ui'
 import CategoryPicker from './CategoryPicker'
 
 const LAST_CAT = 'golden-tool:lastCat'
 const lastCat = () => { try { return localStorage.getItem(LAST_CAT) } catch { return null } }
-/** "12,50" and "12.5" both work */
-export const parseAmount = (s: string) => Math.round(Number(s.replace(',', '.')) * 100) / 100
 /** A tag as it is stored: lower case, no leading #, no commas. */
 const cleanTag = (s: string) => s.trim().toLowerCase().replace(/^#+/, '').replace(/,/g, '').slice(0, 24)
 
@@ -45,7 +43,7 @@ export default function ExpenseSheet() {
       const last = lastCat()
       setAmount(editing ? String(editing.amount) : '')
       setName(editing?.name ?? '')
-      setCategoryId(editing?.categoryId ?? categories.find(c => c.id === last)?.id ?? categories[0]?.id ?? 'other')
+      setCategoryId(editing?.categoryId ?? (categories.find(c => c.id === last && !c.hidden) ?? categories.find(c => !c.hidden))?.id ?? 'other')
       setDate(editing?.date ?? todayISO())
       setNote(editing?.note ?? '')
       setRepeat(false)
@@ -100,7 +98,7 @@ export default function ExpenseSheet() {
     try { localStorage.setItem(LAST_CAT, categoryId) } catch { /* private mode */ }
     useUI.getState().showToast(repeat && !editing ? 'Saved as monthly' : 'Saved')
     if (!another) return closeSheet()
-    // Next receipt: date and category stay.
+    // Next receipt: date, category and tags stay.
     setAmount(''); setName(''); setNote(''); setRepeat(false); setTagText(''); setPicked(false)
     amountRef.current?.focus()
   }
@@ -143,7 +141,7 @@ export default function ExpenseSheet() {
           <div className={cx(inputCls, 'h-auto! min-h-9 max-sm:min-h-11 py-1 flex flex-wrap items-center gap-1 cursor-text focus-within:shadow-[var(--shadow-focus)]')} onClick={e => (e.currentTarget.querySelector('input') as HTMLInputElement).focus()}>
             {tags.map(t => (
               <button key={t} type="button" aria-label={`Remove tag ${t}`} onClick={() => setTags(tags.filter(x => x !== t))}
-                className="t h-6 pl-2 pr-1.5 rounded-sm bg-muted text-xs text-foreground inline-flex items-center gap-1 hover:bg-muted-2">{t}<span aria-hidden className="text-muted-foreground">×</span></button>
+                className="t relative before:absolute before:-inset-y-2.5 before:-inset-x-0.5 h-6 pl-2 pr-1.5 rounded-sm bg-muted text-xs text-foreground inline-flex items-center gap-1 hover:bg-muted-2">{t}<span aria-hidden className="text-muted-foreground">×</span></button>
             ))}
             <input id="expense-tags" value={tagText} autoComplete="off" autoCapitalize="none" placeholder={tags.length ? '' : 'A trip, a project…'}
               onChange={e => (e.target.value.endsWith(',') ? addTag(e.target.value) : setTagText(e.target.value))}
@@ -155,7 +153,7 @@ export default function ExpenseSheet() {
           </div>
           {tagIdeas.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {tagIdeas.map(t => <button key={t} type="button" onClick={() => addTag(t)} className="t h-9 sm:h-7 px-2.5 rounded-md bg-muted text-xs text-muted-foreground hover:text-foreground hover:bg-muted-2">{t}</button>)}
+              {tagIdeas.map(t => <button key={t} type="button" onClick={() => addTag(t)} className="t ctl-sm px-2.5 rounded-md bg-muted text-xs text-muted-foreground hover:text-foreground hover:bg-muted-2">{t}</button>)}
             </div>
           )}
         </div>
@@ -168,8 +166,7 @@ export default function ExpenseSheet() {
             <Switch checked={repeat} onChange={setRepeat} label="Repeat monthly" />
           </label>
         )}
-        {/* Sticks to the bottom of the sheet, so Save stays in reach above a phone keyboard. */}
-        <div className="sticky bottom-0 -mx-5 -mb-[calc(20px+env(safe-area-inset-bottom))] flex items-center justify-end gap-2 border-t border-border bg-card px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-4">
+        <div className={dialogFooterCls}>
           {editing && <Button type="button" variant="destructive" className="mr-auto" onClick={() => { deleteWithUndo('expenses', editing.id); closeSheet() }}>Delete</Button>}
           <Button type="button" variant="ghost" className={cx('max-[359px]:hidden', !editing && 'mr-auto')} onClick={closeSheet}>Cancel</Button>
           {!editing && <Button type="button" onClick={() => save(true)}>Save and add another</Button>}

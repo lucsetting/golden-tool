@@ -348,6 +348,9 @@ export function Dialog({ open, onClose, title, description, children, width = 48
   )
 }
 
+/** Action row that sticks to the bottom of a long dialog, so Save stays in reach above a phone keyboard. */
+export const dialogFooterCls = 'sticky bottom-0 -mx-5 -mb-[calc(20px+env(safe-area-inset-bottom))] flex items-center justify-end gap-2 border-t border-border bg-card px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-4'
+
 /* ---------- Toast ---------- */
 /** The one toast of the app, fed by `useUI().showToast`. Sits above the phone bottom bar. An action (Undo) keeps it up longer. */
 export function Toaster() {

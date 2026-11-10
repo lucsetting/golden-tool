@@ -20,7 +20,13 @@ export default function Budgets() {
   const over = states.filter(s => s === 'over').length, near = states.filter(s => s === 'warn').length
   const f = (n: number) => fmt(n, currency)
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
-  const set = (id: string, v: string) => useStore.getState().updateCategory(id, { budget: Number(v) > 0 ? Number(v) : undefined })
+  /** Saves the field when it holds something else than the stored budget, and puts the stored one back if the save was refused. */
+  const saveBudget = (id: string, now: number | undefined, field: HTMLInputElement) => {
+    const budget = Number(field.value) > 0 ? Number(field.value) : undefined
+    if (budget === now) return
+    useStore.getState().updateCategory(id, { budget })
+    if (useStore.getState().categories.find(c => c.id === id)?.budget === now) field.value = String(now ?? '')
+  }
   // A hidden category still shows while it has a budget or spending this month.
   const rows = categories.filter(c => !c.hidden || c.budget || spent.get(c.id))
 
@@ -70,7 +76,7 @@ export default function Budgets() {
               <span className={cx('max-xl:hidden w-32 text-right', tone)}>{budget ? left(f) : '—'}</span>
               {/* The key follows the stored budget, so a restore or an undo shows in the field. */}
               <Input key={c.budget ?? 0} type="number" inputMode="decimal" min="0" aria-label={`${c.name} monthly budget`} className="w-28! shrink-0 text-right" placeholder="No budget" defaultValue={c.budget ?? ''}
-                onBlur={e => set(c.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+                onBlur={e => saveBudget(c.id, c.budget, e.currentTarget)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
             </TableRow>
           )
         })}

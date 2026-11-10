@@ -3,18 +3,13 @@ import { ArrowDownLeftIcon, ArrowUpRightIcon, PlusIcon, ScaleIcon, BanknotesIcon
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
 import { cashFlow, cashFlowHistory, total } from '../lib/calc'
-import { dateLabel, fmt, monthKey, monthLabel, todayISO } from '../lib/money'
+import { dateLabel, fmt, monthKey, monthLabel, parseAmount, plural, todayISO } from '../lib/money'
 import { deleteWithUndo } from '../lib/undo'
 import type { Income } from '../types'
-import { parseAmount } from '../components/ExpenseSheet'
 import { AnimatedNumber, Button, Card, CardHeader, Chip, Dialog, Empty, Field, Input, Metric, MetricTray, PageHeader, Switch, TableHead, TableRow } from '../components/ui'
 import MonthPicker from '../components/MonthPicker'
-import ChartCard from '../components/charts/ChartCard'
+import ChartCard, { LegendKey as Key } from '../components/charts/ChartCard'
 import FlowBars from '../components/charts/FlowBars'
-
-const Key = ({ color, children }: { color: string; children: string }) => (
-  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: color }} />{children}</span>
-)
 
 /** Add or edit one income. `income` undefined = adding. */
 function IncomeDialog({ income, onClose }: { income?: Income; onClose: () => void }) {
@@ -90,10 +85,10 @@ export default function CashFlow() {
       <PageHeader title="Cash flow" subtitle={subtitle} actions={<><MonthPicker />{add()}</>} />
 
       <MetricTray cols={4}>
-        <Metric label="Income" icon={<ArrowDownLeftIcon />} value={<AnimatedNumber value={cf.income} format={m0} />} sub={`${list.length} ${list.length === 1 ? 'entry' : 'entries'}`} />
+        <Metric label="Income" icon={<ArrowDownLeftIcon />} value={<AnimatedNumber value={cf.income} format={m0} />} sub={plural(list.length, 'entry', 'entries')} />
         <Metric label="Expenses" icon={<ArrowUpRightIcon />} value={<AnimatedNumber value={cf.spent} format={m0} />} sub={cf.income > 0 ? `${Math.round((cf.spent / cf.income) * 100)}% of income` : monthLabel(month)} />
         <Metric label="Cash flow" icon={<BanknotesIcon />} tone={cf.income > 0 && cf.net < 0 ? 'bad' : undefined}
-          value={cf.income > 0 ? <AnimatedNumber value={cf.net} format={m0} /> : '—'} sub="Income minus expenses" />
+          value={<AnimatedNumber value={cf.net} format={m0} />} sub="Income minus expenses" />
         <Metric label="Savings rate" icon={<ScaleIcon />} tone={cf.rate !== null && cf.rate < 0 ? 'bad' : undefined}
           value={cf.rate === null ? '—' : `${cf.rate}%`} sub={cf.rate === null ? 'No income recorded' : 'Share of income left'} />
       </MetricTray>

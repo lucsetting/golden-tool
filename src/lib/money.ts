@@ -61,3 +61,20 @@ export function dateLabel(iso: string): string {
 }
 /** Short label of the month `n` months from now. */
 export const monthAhead = (n: number) => monthLabel(shiftMonth(currentMonthKey(), n), 'short')
+
+/** "1 bill", "2 bills"; pass the plural when it is not the singular plus s. */
+export const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
+
+/** "$1,234.56", "-12.00", "(12.00)", "12,50 €" and "1.234,56" as numbers. NaN when the text is not an amount. */
+export function parseMoney(s: string): number {
+  let x = s.replace(/[^\d.,()+-]/g, '')
+  if (!/\d/.test(x)) return NaN
+  const negative = x.includes('-') || /^\(.*\)$/.test(x)
+  x = x.replace(/[()+-]/g, '')
+  // A comma followed by one or two digits at the end is a decimal comma; any other comma groups thousands.
+  x = /,\d{1,2}$/.test(x) ? x.replace(/\./g, '').replace(',', '.') : x.replace(/,/g, '')
+  const n = Number(x)
+  return negative ? -n : n
+}
+/** What the customer typed in an amount field, in cents. "12,50" and "12.5" both work. */
+export const parseAmount = (s: string) => Math.round(parseMoney(s) * 100) / 100

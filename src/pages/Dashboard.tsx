@@ -8,12 +8,8 @@ import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Empty, Metric,
 import SetupCard from '../components/SetupCard'
 import MonthPicker from '../components/MonthPicker'
 import Breakdown from '../components/charts/Breakdown'
-import ChartCard from '../components/charts/ChartCard'
+import ChartCard, { LegendKey as Key } from '../components/charts/ChartCard'
 import SpendCurve from '../components/charts/SpendCurve'
-
-const Key = ({ color, children }: { color: string; children: string }) => (
-  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: color }} />{children}</span>
-)
 
 export default function Dashboard() {
   const month = useUI(s => s.month)
@@ -92,13 +88,14 @@ export default function Dashboard() {
             action={<Button variant="primary" onClick={() => openSheet()}><PlusIcon />Add expense</Button>} />
         </Card>
       ) : (
-        <>
           <ChartCard label={`Spent in ${monthName}`} value={<AnimatedNumber value={st.spent} format={n => fmt(n, currency)} />}
             sub={limit <= 0 ? count : isCurrent ? `${count} · ${m0(Math.abs(st.spent - st.expectedByNow))} ${st.spent > st.expectedByNow ? 'over' : 'under'} the limit pace` : `${count} · ${st.pctUsed}% of the ${m0(limit)} monthly limit`}
             right={limit > 0 && <div className="flex gap-4 text-xs text-muted-foreground"><Key color={over ? 'var(--destructive)' : 'var(--chart)'}>Spent</Key><Key color="var(--chart-soft)">Limit pace</Key></div>}>
             <SpendCurve data={curve} currency={currency} showPace={limit > 0} over={over} monthName={short} />
           </ChartCard>
+      )}
 
+          {/* What the next days hold: shown for the current month, with or without expenses in it. */}
           {isCurrent && (recap || recurring.length > 0 || budgets.length > 0) && (
             <div className="grid gap-6 items-start lg:[grid-auto-flow:column] lg:[grid-auto-columns:minmax(0,1fr)]">
               {recap && (
@@ -148,6 +145,7 @@ export default function Dashboard() {
             </div>
           )}
 
+      {exps.length > 0 && (
           <div className="grid lg:grid-cols-2 gap-6 items-start">
             <Breakdown slices={slices} spent={st.spent} currency={currency} />
             <Card>
@@ -167,7 +165,6 @@ export default function Dashboard() {
               })}
             </Card>
           </div>
-        </>
       )}
     </div>
   )

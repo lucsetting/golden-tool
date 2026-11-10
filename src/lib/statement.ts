@@ -1,6 +1,7 @@
 // Bank statement import: everything here is plain data in, plain data out. The file never leaves the browser.
 import type { Category, ISODate } from '../types'
 import { normName, ruleFor } from './calc'
+import { parseMoney } from './money'
 
 /** Splits CSV text into rows of fields. Quoted fields may hold the separator, line breaks and doubled quotes. */
 export function parseCSV(text: string): string[][] {
@@ -24,18 +25,6 @@ export function parseCSV(text: string): string[][] {
   }
   if (cell || row.length) { row.push(cell); rows.push(row) }
   return rows.map(r => r.map(c => c.trim())).filter(r => r.some(Boolean))
-}
-
-/** "$1,234.56", "-12.00", "(12.00)", "12,50 €" and "1.234,56" as numbers. NaN when the text is not an amount. */
-export function parseMoney(s: string): number {
-  let x = s.replace(/[^\d.,()+-]/g, '')
-  if (!/\d/.test(x)) return NaN
-  const negative = x.includes('-') || /^\(.*\)$/.test(x)
-  x = x.replace(/[()+-]/g, '')
-  // A comma followed by one or two digits at the end is a decimal comma; any other comma groups thousands.
-  x = /,\d{1,2}$/.test(x) ? x.replace(/\./g, '').replace(',', '.') : x.replace(/,/g, '')
-  const n = Number(x)
-  return negative ? -n : n
 }
 
 /** A statement date as YYYY-MM-DD. Month first unless `dayFirst`; year-first and "Nov 5, 2026" are read as they are. */
@@ -67,10 +56,10 @@ export function detectColumns(rows: string[][]): Mapping {
   const header = !head.some(c => parseDate(c))
   const body = rows.slice(header ? 1 : 0, 12)
   const cols = Array.from({ length: Math.max(0, ...rows.slice(0, 12).map(r => r.length)) }, (_, i) => i)
-  const named = (re: RegExp) => (header ? head.findIndex(c => re.test(c)) : -1)
+  const named = (re: RegExp, not?: RegExp) => (header ? head.findIndex(c => re.test(c) && !not?.test(c)) : -1)
   const share = (i: number, test: (c: string) => boolean) => body.filter(r => test(r[i] ?? '')).length / (body.length || 1)
-  const isMoney = (c: string) => c !== '' && !/[a-z]{2}/i.test(c) && !isNaN(parseMoney(c))
-  let date = named(/date|posted/i), name = named(/desc|name|payee|merchant|memo|details|narrative/i), amount = named(/amount|amt|value/i)
+  const isMoney = (c: string) => c !== '' && !/[a-z]{2}/i.test(c) && !parseDate(c) && !isNaN(parseMoney(c))
+  let date = named(/date|posted/i), name = named(/desc|name|payee|merchant|memo|details|narrative/i), amount = named(/amount|amt|value/i, /date/i)
   let debit = named(/debit|withdraw|money out|paid out/i), credit = named(/credit|deposit|money in|paid in/i)
   if (date < 0) date = cols.find(i => share(i, c => !!parseDate(c)) > 0.6) ?? -1
   if (debit >= 0 && credit >= 0 && debit !== credit) amount = -1
@@ -90,9 +79,11 @@ export function guessDayFirst(rows: string[][], m: Mapping): boolean {
   const first = rows.slice(m.header ? 1 : 0).map(r => Number((r[m.date] ?? '').match(/^(\d{1,2})[-/.]\d{1,2}[-/.]/)?.[1]))
   return first.some(n => n > 12)
 }
-/** True when a signed amount column has no negative value: a card statement, where a positive amount is money out. */
+/** True when most amounts in a signed column are positive: a card statement, where a positive amount is money out.
+ *  ponytail: a majority vote; an account with more deposits than expenses guesses wrong, and the switch in the dialog corrects it. */
 export function guessPositiveOut(rows: string[][], m: Mapping): boolean {
-  return m.amount >= 0 && !rows.slice(m.header ? 1 : 0).some(r => parseMoney(r[m.amount] ?? '') < 0)
+  const amounts = rows.slice(m.header ? 1 : 0).map(r => parseMoney(r[m.amount] ?? ''))
+  return m.amount >= 0 && amounts.filter(n => n > 0).length > amounts.filter(n => n < 0).length
 }
 
 /** One statement line. `amount` is positive for money out and negative for money in. */

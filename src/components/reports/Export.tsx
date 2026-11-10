@@ -22,7 +22,7 @@ export default function Export() {
   const download = (name: string, year = '') => {
     const cat = (id: string) => categories.find(c => c.id === id)?.name ?? 'Other'
     const rows = [
-      ...expenses.filter(e => e.date.startsWith(year)).map(e => [e.date, 'expense', e.name, cat(e.categoryId), e.amount.toFixed(2), (e.tags ?? []).join(' '), e.note ?? '']),
+      ...expenses.filter(e => e.date.startsWith(year)).map(e => [e.date, 'expense', e.name, cat(e.categoryId), e.amount.toFixed(2), (e.tags ?? []).join('; '), e.note ?? '']),
       ...incomes.filter(i => i.date.startsWith(year)).map(i => [i.date, 'income', i.source, '', i.amount.toFixed(2), '', '']),
     ].sort((a, b) => a[0].localeCompare(b[0])).map(r => r.map(esc).join(','))
     const url = URL.createObjectURL(new Blob([['date,type,name,category,amount,tags,note', ...rows].join('\n')], { type: 'text/csv;charset=utf-8' }))

@@ -211,7 +211,6 @@ function Data() {
   }
   const doImport = async (f?: File) => {
     if (!f) return
-    if (isReadOnly(useStore.getState().settings)) return toast('Included access ended. Nothing was changed.', 'err')
     const ok = useStore.getState().importJSON(await f.text())
     toast(ok ? 'Backup restored' : 'Not a valid Golden Tool backup', ok ? 'ok' : 'err')
     if (file.current) file.current.value = ''

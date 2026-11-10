@@ -2,13 +2,12 @@ import { useMemo, useRef, useState } from 'react'
 import { ArrowUpTrayIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
-import { dateLabel, fmt, uid } from '../lib/money'
+import { dateLabel, fmt, plural, uid } from '../lib/money'
 import { undoImport } from '../lib/undo'
 import { categorise, detectColumns, guessDayFirst, guessPositiveOut, parseCSV, rowKey, toRows, type Mapping } from '../lib/statement'
-import { Button, Chip, Dialog, Field, Segmented, Select, Switch, cx } from './ui'
+import { Button, Chip, Dialog, Field, Segmented, Select, Switch, cx, dialogFooterCls } from './ui'
 
 const CHUNK = 100
-const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
 /** Bank statement import: choose a CSV file, confirm the columns, review every line, import. The file stays in the browser. */
 export default function StatementImport() {
@@ -46,8 +45,10 @@ export default function StatementImport() {
   const have = useMemo(() => new Set([...expenses.map(e => 'out' + rowKey(e.date, e.amount, e.name)), ...incomes.map(i => 'in' + rowKey(i.date, i.amount, i.source))]), [expenses, incomes])
   const view = useMemo(() => rows.map(r => {
     const income = r.amount < 0
-    const dup = have.has((income ? 'in' : 'out') + rowKey(r.date, r.amount, r.name))
-    return { ...r, income, dup, categoryId: cats[r.line] ?? categorise(r.name, rules, categories), on: !dup && !skip.has(r.line) && (!income || withIncome) }
+    // A line without a description gets the name it is saved under, so a second import still finds it.
+    const name = r.name || (income ? 'Income' : 'Expense')
+    const dup = have.has((income ? 'in' : 'out') + rowKey(r.date, r.amount, name))
+    return { ...r, name, income, dup, categoryId: cats[r.line] ?? categorise(r.name, rules, categories), on: !dup && !skip.has(r.line) && (!income || withIncome) }
   }), [rows, have, cats, skip, withIncome, rules, categories])
   const chosen = view.filter(r => r.on)
   const nOut = chosen.filter(r => !r.income).length, nIn = chosen.length - nOut
@@ -63,9 +64,11 @@ export default function StatementImport() {
 
   const run = () => {
     const importId = uid(), createdAt = Date.now()
-    const out = chosen.filter(r => !r.income).map(r => ({ id: uid(), createdAt, amount: r.amount, name: r.name || 'Expense', categoryId: r.categoryId, date: r.date, importId }))
-    const inc = chosen.filter(r => r.income).map(r => ({ id: uid(), createdAt, amount: -r.amount, source: r.name || 'Income', date: r.date, importId }))
+    const out = chosen.filter(r => !r.income).map(r => ({ id: uid(), createdAt, amount: r.amount, name: r.name, categoryId: r.categoryId, date: r.date, importId }))
+    const inc = chosen.filter(r => r.income).map(r => ({ id: uid(), createdAt, amount: -r.amount, source: r.name, date: r.date, importId }))
     useStore.setState(s => ({ expenses: [...out, ...s.expenses], incomes: [...inc, ...s.incomes] }))
+    // A category the customer corrected here is remembered like one chosen in the expense sheet.
+    for (const r of chosen) if (!r.income && cats[r.line]) useStore.getState().learnRule(r.name, r.categoryId)
     toast(`Imported ${plural(out.length, 'expense')}${inc.length ? ` and ${plural(inc.length, 'income', 'incomes')}` : ''}`, 'ok', { label: 'Undo', run: () => undoImport(importId) })
     close()
   }
@@ -128,7 +131,7 @@ export default function StatementImport() {
           <div className="flex flex-col gap-1">
             {!two && map.amount >= 0 && (
               <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 text-sm">
-                <span className="text-foreground">Positive amounts are money out<span className="block text-muted-foreground">Turn on for a card statement that lists purchases as positive numbers.</span></span>
+                <span className="text-foreground">Positive amounts are money out<span className="block text-muted-foreground">Turn on for a card statement that lists expenses as positive numbers.</span></span>
                 <Switch checked={positiveOut} onChange={setPositiveOut} label="Positive amounts are money out" />
               </label>
             )}
@@ -151,10 +154,10 @@ export default function StatementImport() {
             {view.slice(0, shown).map(r => (
               <div key={r.line} className={cx('px-3 py-2 flex flex-wrap items-center gap-x-3 text-sm border-b border-border last:border-b-0', !r.on && 'bg-muted/30')}>
                 <label className="h-11 w-8 -my-2 shrink-0 inline-flex items-center justify-center cursor-pointer">
-                  <input type="checkbox" className="h-4 w-4 accent-[var(--primary)]" aria-label={`Import ${r.name || 'this line'}`} checked={r.on} disabled={r.dup || (r.income && !withIncome)} onChange={() => toggle(r.line)} />
+                  <input type="checkbox" className="h-4 w-4 accent-[var(--primary)]" aria-label={`Import ${r.name}`} checked={r.on} disabled={r.dup || (r.income && !withIncome)} onChange={() => toggle(r.line)} />
                 </label>
                 <div className={cx('min-w-0 flex-1', !r.on && 'opacity-60')}>
-                  <div className="flex items-center gap-2"><span className="truncate text-foreground">{r.name || 'No description'}</span>{r.dup && <Chip>Already here</Chip>}{r.income && <Chip tone="good">Income</Chip>}</div>
+                  <div className="flex items-center gap-2"><span className="truncate text-foreground">{r.name}</span>{r.dup && <Chip>Already here</Chip>}{r.income && <Chip tone="good">Income</Chip>}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">{dateLabel(r.date)}</div>
                 </div>
                 {/* On a phone the category takes its own row under the name. */}
@@ -171,8 +174,7 @@ export default function StatementImport() {
             {view.length > shown && <button type="button" onClick={() => setShown(shown + CHUNK)} className="t w-full h-11 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Show {Math.min(CHUNK, view.length - shown)} more of {view.length}</button>}
           </div>
 
-          {/* Sticks to the bottom of the dialog, so the action stays in reach on a long statement. */}
-          <div className="sticky bottom-0 -mx-5 -mb-[calc(20px+env(safe-area-inset-bottom))] flex items-center justify-end gap-2 border-t border-border bg-card px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-4">
+          <div className={dialogFooterCls}>
             <Button variant="ghost" onClick={close}>Cancel</Button>
             <Button variant="primary" className="max-sm:flex-1" disabled={!chosen.length} onClick={run}>Import {plural(nOut, 'expense')}{nIn > 0 && ` and ${plural(nIn, 'income', 'incomes')}`}</Button>
           </div>

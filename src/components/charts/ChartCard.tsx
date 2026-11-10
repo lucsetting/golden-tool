@@ -1,5 +1,10 @@
 import { Card } from '../ui'
 
+/** One entry of a chart legend: a coloured dot and its series name. */
+export const LegendKey = ({ color, children }: { color: string; children: string }) => (
+  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: color }} />{children}</span>
+)
+
 /** Chart card: muted label, large value and a sub-line above the plot. `right` sits top right (legend, note). */
 export default function ChartCard({ label, value, sub, right, children }: { label: string; value: React.ReactNode; sub?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) {
   return (

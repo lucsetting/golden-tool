@@ -14,6 +14,10 @@ _Avoid_: Transaction, purchase, spend
 One amount of money received, on a date, from a named source.
 _Avoid_: Earning, deposit, revenue
 
+**Monthly income**:
+An income that is added again on the same day of every later month.
+_Avoid_: Recurring income, salary, paycheck
+
 **Monthly limit**:
 The single ceiling the customer sets for total expenses in a month.
 _Avoid_: Budget, cap, allowance
@@ -36,11 +40,19 @@ What can still be spent per day without passing the monthly limit.
 An expense that repeats every month on a known day.
 _Avoid_: Recurring, recurring expense, fixed cost
 
+**Paused bill**:
+A bill the customer switched off: it stays in the list and posts nothing until switched on again.
+_Avoid_: Inactive, disabled, archived
+
 **Subscription**:
 A bill for a service the customer could cancel.
 
 **Category**:
 The kind of thing an expense paid for. Customers can create their own.
+
+**Hidden category**:
+A category that came with the app and that the customer took out of the pickers. Expenses already in it keep it.
+_Avoid_: Archived, deleted, disabled
 
 **Tag**:
 A free label on an expense that cuts across categories, such as a trip.

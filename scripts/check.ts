@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict'
 import { generateKey, isValidKey, normalizeKey, parseKey } from '../src/lib/license'
 import { budgetState, byCategory, cashFlow, dailyCumulative, dayIn, dueSoon, monthStats, normName, payoffPlan, postings, ruleFor, safeToSave, streak, subscriptions, total, weeklyRecap } from '../src/lib/calc'
-import { addDays, currentMonthKey, daysInMonth, shiftMonth, todayISO } from '../src/lib/money'
-import { categorise, detectColumns, guessDayFirst, guessPositiveOut, parseCSV, parseDate, parseMoney, rowKey, toRows } from '../src/lib/statement'
+import { addDays, currentMonthKey, daysInMonth, parseAmount, parseMoney, plural, shiftMonth, todayISO } from '../src/lib/money'
+import { categorise, detectColumns, guessDayFirst, guessPositiveOut, parseCSV, parseDate, rowKey, toRows } from '../src/lib/statement'
 
 // license
 for (const kind of ['all', 'debts', 'goals', 'reports', 'lifetime'] as const) {
@@ -72,18 +72,20 @@ const E = (id: string, amount: number, date: string, x: object = {}) => ({ id, a
   const rent = { id: 'rent', amount: 1500, categoryId: 'a', name: 'Rent', dayOfMonth: 1, active: true }
   const gym = { id: 'gym', amount: 40, categoryId: 'a', name: 'Gym', dayOfMonth: 31, active: true, subscription: true }
   const off = { id: 'off', amount: 9, categoryId: 'a', name: 'Paused', dayOfMonth: 2, active: false, subscription: true }
-  const base = { expenses: [], recurring: [rent, gym, off], incomes: [], recurringApplied: ['2026-01'] }
+  const base = { expenses: [], recurring: [rent, gym, off], incomes: [], recurringApplied: ['2026-01', 'rent@2026-01'] } // last opened in January, before Gym's day
   const first = postings(base, '2026-02-10')
-  assert.deepEqual(first.expenses.map(e => [e.name, e.date]), [['Rent', '2026-02-01']], 'only the bills whose day has come, never a paused one')
+  assert.deepEqual(first.expenses.map(e => [e.name, e.date]), [['Gym', '2026-01-31'], ['Rent', '2026-02-01']], 'only the bills whose day has come, never a paused one')
   const month = postings(base, '2026-02-28')
-  assert.deepEqual(month.expenses.map(e => e.date), ['2026-02-01', '2026-02-28'], 'day 31 posts on Feb 28')
+  assert.deepEqual(month.expenses.map(e => e.date), ['2026-01-31', '2026-02-01', '2026-02-28'], 'day 31 posts on Feb 28')
   const after = { ...base, expenses: month.expenses.map((e, i) => ({ ...e, id: 'p' + i, createdAt: 0 })), recurringApplied: [...base.recurringApplied, ...month.applied] }
   assert.equal(postings(after, '2026-02-28').applied.length, 0, 'a second run posts nothing')
   assert.equal(postings({ ...after, expenses: [] }, '2026-02-28').expenses.length, 0, 'a posting the customer deleted does not come back')
   const legacy = { ...base, expenses: [E('old', 1500, '2026-02-01', { recurringId: 'rent' })], recurringApplied: ['2026-02'] }
   assert.equal(postings(legacy, '2026-02-10').expenses.length, 0, 'an expense posted by the previous version is not posted twice')
-  const away = postings(base, '2026-04-02') // nobody opened the app in February or March
-  assert.deepEqual(away.expenses.map(e => e.date), ['2026-02-01', '2026-02-28', '2026-03-01', '2026-03-31', '2026-04-01'], 'missed months are caught up')
+  const away = postings(base, '2026-04-02') // last opened in January, before Gym's day
+  assert.deepEqual(away.expenses.map(e => e.date), ['2026-01-31', '2026-02-01', '2026-02-28', '2026-03-01', '2026-03-31', '2026-04-01'], 'missed months are caught up')
+  const early = { ...base, recurring: [gym], recurringApplied: ['2026-01', '2026-02'] } // opened on Feb 10, then not again until March
+  assert.deepEqual(postings(early, '2026-03-03').expenses.map(e => e.date), ['2026-02-28'], 'a bill that came due after the last visit of a month still posts')
   // repeating income: the first one is the entry itself, later months post on the same day
   const pay = { id: 'pay', amount: 4000, source: 'Salary', date: '2026-01-31', repeat: true, createdAt: 0 }
   const inc = postings({ ...base, recurring: [], incomes: [pay] }, '2026-03-15')
@@ -129,8 +131,13 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   const bare = parseCSV('2026-11-01,Coffee,4.50\n2026-11-02,Books,30\n')
   const m3 = detectColumns(bare)
   assert.deepEqual(m3, { header: false, date: 0, name: 1, amount: 2, debit: -1, credit: -1 }); assert.equal(guessPositiveOut(bare, m3), true)
+  const card = parseCSV('2026-11-01,Coffee,4.50\n2026-11-02,Books,30\n2026-11-03,Shoes,80\n2026-11-04,PAYMENT THANK YOU,-500\n')
+  assert.equal(guessPositiveOut(card, detectColumns(card)), true, 'one payment does not turn a card statement around')
+  assert.equal(detectColumns(parseCSV('Date,Value Date,Description,Amount\n11/04/2026,11/04/2026,Coffee,-4.50\n')).amount, 3, 'a second date column is not the amount')
+  assert.equal(detectColumns(parseCSV('Date,Posted,Description,Paid\n11/04/2026,11/05/2026,Coffee,-4.50\n')).amount, 3)
   assert.deepEqual(toRows(bare, m3, false, true).map(r => r.amount), [4.5, 30])
   assert.equal(parseMoney('€ 1.234,56'), 1234.56); assert.equal(parseMoney('1,234'), 1234); assert.equal(parseMoney('12.00-'), -12); assert.ok(isNaN(parseMoney('n/a')))
+  assert.equal(parseAmount('12,50'), 12.5); assert.equal(parseAmount('12.505'), 12.51); assert.ok(!(parseAmount('') > 0)); assert.equal(plural(1, 'bill'), '1 bill'); assert.equal(plural(2, 'entry', 'entries'), '2 entries')
   assert.equal(parseDate('3/11/26'), '2026-03-11'); assert.equal(parseDate('3/11/26', true), '2026-11-03'); assert.equal(parseDate('Nov 5, 2026'), '2026-11-05')
   assert.equal(parseDate('13/40/2026'), null); assert.equal(parseDate('Rent 5'), null)
   // duplicates: same date, amount and normalised name
@@ -197,10 +204,17 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   useStore.getState().updateCategory('groceries', { budget: 1 }); useStore.getState().learnRule('x', 'other'); useStore.setState({ goals: [] as never[], debts: [{} as never] })
   assert.deepEqual([useStore.getState().expenses.length, useStore.getState().incomes.length, useStore.getState().debts.length, Object.keys(useStore.getState().rules).length], [0, 0, 0, 0])
   useStore.getState().updateSettings({ theme: 'light' }); assert.equal(useStore.getState().settings.theme, 'light')
+  useStore.getState().updateSettings({ monthlyLimit: 9 }); assert.equal(useStore.getState().settings.monthlyLimit, 0, 'the monthly limit is data too')
+  assert.ok(useStore.getState().activateKey(generateKey('lifetime')), 'a code can still be entered'); assert.equal(useStore.getState().settings.keys.length, 2)
+  useStore.getState().addExpense({ amount: 1, categoryId: 'other', name: 'x', date: '2026-01-01' }); assert.equal(useStore.getState().expenses.length, 1, 'and it lifts the block')
+  loadState({ expenses: [], settings: { ...useStore.getState().settings, keys: ['GOLDABCD1234'] } })
   loadState(JSON.parse(json)); assert.deepEqual(pickData(useStore.getState()), before, 'export then load gives back every record')
   const { useUI } = await import('../src/ui-state')
   useUI.getState().dismissToast()
   loadState({ settings: { ...useStore.getState().settings, firstOpenedAt: Date.now() } })
+  useUI.getState().showToast('Saved'); assert.equal(useUI.getState().toast, undefined, 'a refusal is not replaced by the caller\'s success message')
+  await new Promise(r => setTimeout(r)); useUI.getState().showToast('Saved'); assert.equal(useUI.getState().toast?.msg, 'Saved', 'the next click toasts as usual')
+  useUI.getState().dismissToast()
 }
 // delete with undo restores the item at the same position
 {
@@ -216,4 +230,31 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   useUI.getState().dismissToast()
 }
 
+// sync against a stand-in for the account service: a failed pull sends nothing, and a field another device wrote survives a push
+{
+  const { useStore, loadState } = await import('../src/store')
+  const { useAccount } = await import('../src/account')
+  const { startSync } = await import('../src/lib/sync')
+  const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
+  let row: Record<string, unknown> | null = { settings: { currency: 'USD', monthlyLimit: 100, onboarded: true, theme: 'light', monthStartDay: 1, keys: [], firstOpenedAt: Date.now() }, expenses: [E('srv', 7, '2026-01-02')], netWorth: [1] }
+  let offline = true, writes = 0
+  const service = { from: () => ({
+    select: () => ({ eq: () => ({ maybeSingle: async () => (offline ? { data: null, error: new Error('offline') } : { data: row && { state: row }, error: null }) }) }),
+    upsert: async (r: { state: Record<string, unknown> }) => { row = r.state; writes++; return { error: null } },
+  }) }
+  const signIn = (id: string) => useAccount.setState({ session: { user: { id } } as never, synced: false })
+  loadState({ expenses: [E('local', 1, '2026-01-01')] })
+  startSync(service as never)
+  signIn('u1'); await wait(20)
+  assert.equal(useAccount.getState().synced, false, 'a pull that failed leaves the account not loaded'); assert.equal(writes, 0, 'and nothing local is written over the account')
+  offline = false; signIn('u2'); await wait(20)
+  assert.equal(useAccount.getState().synced, true); assert.deepEqual(useStore.getState().expenses.map(e => e.id), ['srv'], 'the account\'s copy replaces what was local')
+  assert.deepEqual(useStore.getState().incomes, [], 'a copy from the previous version gains the new lists'); assert.equal(writes, 0, 'loading the copy is not a change to send')
+  row = { ...row!, assets: [2] } // another device, on a newer version, writes while this one stays open
+  useStore.getState().addIncome({ amount: 5, source: 'Gift', date: '2026-01-03' }); await wait(900)
+  assert.equal(writes, 1); assert.deepEqual([row!.netWorth, row!.assets], [[1], [2]], 'fields this version does not know are sent back, including one written after the pull')
+  assert.equal((row!.incomes as unknown[]).length, 1); assert.deepEqual((row!.expenses as { id: string }[]).map(e => e.id), ['srv'])
+}
+
 console.log('check OK')
+process.exit(0) // the failed pull above left its retry timer behind
