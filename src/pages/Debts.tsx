@@ -1,23 +1,26 @@
 import { useMemo } from 'react'
 import { useUI } from '../ui-state'
-import { neverPaid, simulate } from '../lib/debts'
-import { fmt, monthAhead, plural } from '../lib/money'
+import { STRATEGY, neverPaid, simulate } from '../lib/debts'
+import { currentMonthKey, fmt, monthAhead, plural } from '../lib/money'
 import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, Metric, MetricTray, TableHead } from '../components/ui'
 import { AddonPage, type Screens } from '../components/Locked'
 import DebtPlanner from '../components/pro/DebtPlanner'
 import WhatIf from '../components/pro/WhatIf'
 import Payments from '../components/pro/Payments'
-import { useDebts } from '../components/debts/shared'
+import { useDebts, usePlan } from '../components/debts/shared'
 
 const MAX_ROWS = 120
 
 function MonthByMonth() {
-  const { now, plan, currency } = useDebts()
+  const { now, currency } = useDebts()
+  const plan = usePlan()
+  // A debt already paid stays in the plan, where its minimum goes to the others; only the open ones get a column.
   const debts = useMemo(() => now.filter(d => d.balance > 0), [now])
   const { extra, method } = plan
-  const sim = useMemo(() => simulate(debts, plan), [debts, plan])
+  const sim = useMemo(() => simulate(now, plan), [now, plan])
   const rows = sim.rows, never = neverPaid(sim)
-  const sum = useMemo(() => rows.reduce((s, r) => s + r.total, 0), [rows])
+  const cur = currentMonthKey(), thisMonth = plan.oneOff?.month === cur ? plan.oneOff.amount : 0
+  const sum = useMemo(() => rows.reduce((s, r) => s + r.total, thisMonth), [rows, thisMonth])
   const f = (n: number) => fmt(n, currency)
   const shown = rows.slice(0, MAX_ROWS)
   const cell = (r: typeof rows[number], id: string) => (
@@ -39,7 +42,8 @@ function MonthByMonth() {
       </MetricTray>
       <Card>
         <CardHeader title="Month by month"
-          right={<span className="text-xs text-muted-foreground">{method === 'avalanche' ? 'Avalanche' : 'Snowball'}{extra > 0 && ` · ${f(extra)} extra`}</span>} />
+          right={<span className="text-xs text-muted-foreground">{STRATEGY[method]}{extra > 0 && ` · ${f(extra)} extra`}</span>} />
+        {thisMonth > 0 && <p className="px-4 py-3 text-sm text-muted-foreground border-b border-border tabular-nums">Before the first month below, the plan has a one-off payment of {f(thisMonth)} this month.</p>}
         <div className="max-md:hidden overflow-x-auto">
           <div className="min-w-fit tabular-nums">
             <TableHead>

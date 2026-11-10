@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { PlusIcon } from '@heroicons/react/16/solid'
+import { PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
 import { useUI } from '../../ui-state'
-import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, Metric, MetricTray, Select, TableHead, TableRow } from '../ui'
+import { AnimatedNumber, Button, Card, CardHeader, Chip, Empty, IconButton, Metric, MetricTray, Select, TableHead, TableRow } from '../ui'
+import { deleteWithUndo } from '../../lib/undo'
 import { currentMonthKey, dateLabel, fmt, monthKey, monthLabel, plural } from '../../lib/money'
 import { PaymentDialog, PlanProgress, useDebts } from '../debts/shared'
 import type { Payment } from '../../types'
@@ -44,7 +45,7 @@ export default function Payments() {
           <Empty title={only ? 'No payments to this debt yet' : 'No payments logged yet'} text="Log each payment you make. The debt's balance follows, and this page shows whether you are ahead of or behind the payoff plan." action={owedNow > 0 && <Button variant="primary" className="max-sm:px-4" onClick={() => setDialog({})}><PlusIcon /><span>Log payment</span></Button>} />
         ) : (
           <>
-            <TableHead className="max-sm:hidden"><span className="flex-1">Debt</span><span className="w-32">Date</span><span className="w-28 text-right">Amount</span></TableHead>
+            <TableHead className="max-sm:hidden"><span className="flex-1">Debt</span><span className="w-32">Date</span><span className="w-28 text-right">Amount</span><span className="w-8" /></TableHead>
             {list.map(p => {
               const row = (
                 <>
@@ -56,8 +57,10 @@ export default function Payments() {
                   <span className="sm:w-28 text-right text-foreground tabular-nums">{p.correction ? (p.amount > 0 ? '−' : '+') + f(Math.abs(p.amount)) : f(p.amount)}</span>
                 </>
               )
-              // A correction is not a payment: it has no amount to edit, only the balance it set.
-              return p.correction ? <TableRow key={p.id}>{row}</TableRow> : <TableRow key={p.id} onClick={() => setDialog({ payment: p })}>{row}</TableRow>
+              // A correction is not a payment: there is no amount to edit, only the balance it set, which can be taken back.
+              return p.correction
+                ? <TableRow key={p.id}>{row}<IconButton size="sm" className="max-sm:-mr-2" label={`Delete the balance correction of ${name.get(p.debtId)}`} onClick={() => deleteWithUndo('payments', p.id, 'Balance correction deleted')}><TrashIcon /></IconButton></TableRow>
+                : <TableRow key={p.id} onClick={() => setDialog({ payment: p })}>{row}<span className="w-8 max-sm:hidden" /></TableRow>
             })}
           </>
         )}

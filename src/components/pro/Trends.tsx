@@ -26,13 +26,13 @@ export default function Trends() {
     <div className="space-y-6">
       {high.length > 0 && (
         <Card>
-          <CardHeader title="Unusually high this month" icon={<ArrowTrendingUpIcon className="h-4 w-4 text-muted-foreground shrink-0" />} right={<span className="text-xs text-muted-foreground max-sm:hidden">More than 40% above its three-month average</span>} />
+          <CardHeader title="Unusually high this month" icon={<ArrowTrendingUpIcon className="h-4 w-4 text-muted-foreground shrink-0" />} right={<span className="text-xs text-muted-foreground max-sm:hidden">More than 40% above its usual month</span>} />
           {high.map(a => (
             <TableRow key={a.category.id} className="tabular-nums">
               <CategoryBadge category={a.category} />
               <span className="min-w-0 flex-1">
                 <span className="block text-foreground truncate">{a.category.name}</span>
-                <span className="block text-xs text-muted-foreground mt-0.5 leading-5">{f0(a.soFar)} so far, on pace for {f0(a.pace)} this month. Average of the previous three months: {f0(a.usual)}.</span>
+                <span className="block text-xs text-muted-foreground mt-0.5 leading-5">{f0(a.soFar)} so far, on pace for {f0(a.pace)} this month. Average of the previous {a.months === 1 ? 'month' : `${a.months} months`}: {f0(a.usual)}.</span>
               </span>
               <span className="text-warn shrink-0">+{Math.round(((a.pace - a.usual) / a.usual) * 100)}%</span>
             </TableRow>
@@ -61,7 +61,7 @@ export default function Trends() {
                   <span className="tabular-nums text-foreground">{f0(t.last)}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground tabular-nums">
-                  <span>{f0(t.sum / 12)} a month on average</span>
+                  <span>{f0(t.average)} a month on average</span>
                   {t.change === null ? <span>No earlier months</span> : <span className="inline-flex items-center gap-1">{t.change !== 0 && <Arrow className="h-3.5 w-3.5" />}{t.change > 0 ? '+' : ''}{t.change}%</span>}
                 </div>
                 <div className="mt-4 h-14 flex items-end gap-1" role="img" aria-label={`${t.category.name}, twelve months: ${t.months.map(m => `${SHORT(m.month)} ${f0(m.amount)}`).join(', ')}`}>

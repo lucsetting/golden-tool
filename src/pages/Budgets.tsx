@@ -4,10 +4,9 @@ import { useUI } from '../ui-state'
 import { AnimatedNumber, Card, CardHeader, CategoryBadge, Chip, Input, Metric, MetricTray, PageHeader, ProgressBar, TableHead, TableRow, cx } from '../components/ui'
 import MonthPicker from '../components/MonthPicker'
 import { budgetState, byCategory, expensesForMonth } from '../lib/calc'
-import { rollover } from '../lib/vision'
-import { hasModule } from '../lib/access'
-import { fmt, monthLabel, shiftMonth } from '../lib/money'
+import { fmt, monthLabel } from '../lib/money'
 import AdvancedBudgeting from '../components/pro/AdvancedBudgeting'
+import { useCarried } from '../components/pro/carry'
 
 /** One budget per category: the totals, how they compare with the monthly limit, then a row per category with its amount field.
  *  With Golden Vision a budget set to roll over also has what it left unused last month. */
@@ -18,9 +17,7 @@ export default function Budgets() {
   const limit = useStore(s => s.settings.monthlyLimit)
   const month = useUI(s => s.month)
   const spent = useMemo(() => new Map(byCategory(expensesForMonth(expenses, month), categories).map(s => [s.category.id, s.amount])), [expenses, month, categories])
-  const vision = useStore(s => hasModule(s.settings, 'reports'))
-  const spentLast = useMemo(() => new Map(byCategory(expensesForMonth(expenses, shiftMonth(month, -1)), categories).map(s => [s.category.id, s.amount])), [expenses, month, categories])
-  const carried = (c: typeof categories[number]) => (vision && c.rollover && c.budget ? rollover(c.budget, spentLast.get(c.id) ?? 0) : 0)
+  const carried = useCarried(month)
   const budgeted = categories.filter(c => c.budget)
   const sum = budgeted.reduce((s, c) => s + c.budget!, 0)
   const states = budgeted.map(c => budgetState(spent.get(c.id) ?? 0, c.budget! + carried(c)))
@@ -74,7 +71,7 @@ export default function Budgets() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><span className="truncate text-foreground">{c.name}</span>{c.hidden && <Chip>Hidden</Chip>}{extra > 0 && <Chip className="max-xl:hidden">+{f0(extra)} rollover</Chip>}</div>
                 <div className="xl:hidden mt-1 text-xs text-muted-foreground truncate">
-                  {budget ? <>{f0(s)} of {f0(c.budget!)}{extra > 0 && ` + ${f0(extra)}`} · <span className={tone}>{left(f0)}</span></> : `${f0(s)} spent`}
+                  {budget ? <>{f0(s)} of {f0(budget)} · <span className={tone}>{left(f0)}</span></> : `${f0(s)} spent`}
                 </div>
                 {bar && <div className="xl:hidden mt-2">{bar}</div>}
               </div>
@@ -88,7 +85,7 @@ export default function Budgets() {
           )
         })}
       </Card>
-      <AdvancedBudgeting unlocked={vision} month={month} spentLast={spentLast} />
+      <AdvancedBudgeting month={month} />
     </div>
   )
 }

@@ -8,7 +8,7 @@ export interface Category {
   color: string // hex
   budget?: number // optional budget for this category
   hidden?: boolean // left out of the pickers; what was filed under it stays
-  rollover?: boolean // Golden Vision: what the budget left unused last month is added to this month
+  rollover?: MonthKey // Golden Vision: the month rollover was switched on; from the month after, what the budget left unused is carried over
   group?: 'needs' | 'wants' // for the 50/30/20 preset; unset follows the built-in default
 }
 
@@ -95,6 +95,7 @@ export interface DebtPlan {
   method: 'snowball' | 'avalanche'
   extra: number // on top of the minimum payments, every month
   oneOff?: { amount: number; month: MonthKey }
+  start?: ISODate // the day these settings were last changed: ahead or behind is counted from here
 }
 
 /** An asset or a liability in net worth. */

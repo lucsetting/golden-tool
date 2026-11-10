@@ -12,6 +12,8 @@ Golden Freedom gained a payment log and a comparison between the real balance an
 
 When the customer types a new balance for a debt that already has history, the difference is stored as a **balance correction** in the payment log, so the plan's starting point stays where it was and the comparison with the plan keeps its meaning. A debt entered this month with no payments has its starting balance changed directly.
 
+The comparison with the plan is counted from `DebtPlan.start`, the day the plan's settings were last changed, starting from what each debt owed that day. Without it, raising the extra amount would rewrite the past and turn a customer who paid everything into one who is behind.
+
 ## Alternatives considered
 
 - **Subtract payments from a stored balance, ignore interest.** Simplest, but the balance is wrong after one month and "ahead of plan" is always true.

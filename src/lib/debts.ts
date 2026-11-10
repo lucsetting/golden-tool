@@ -1,10 +1,10 @@
 import type { Debt, DebtPlan, ISODate, MonthKey, Payment } from '../types'
-import { currentMonthKey, monthKey, shiftMonth, todayISO } from './money'
+import { currentMonthKey, monthKey, round2 as r2, shiftMonth, todayISO } from './money'
 
 /** A plan that is not paid off after this many months never will be: the payments do not cover the interest. */
 export const MAX_MONTHS = 600
+export const STRATEGY = { snowball: 'Snowball', avalanche: 'Avalanche' } as const
 export type DebtLike = Pick<Debt, 'id' | 'name' | 'balance' | 'apr' | 'minPayment' | 'startDate'>
-const r2 = (n: number) => Math.round(n * 100) / 100
 const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0)
 
 /** One month of a payoff plan. `pays[id]` is absent once that debt is paid off; `balance` is what all debts owe after the month. */
@@ -13,7 +13,9 @@ export interface ScheduleRow { month: number; pays: Record<string, number>; tota
 /** The payoff plan month by month; row n is the n-th month after `startMk`. Every open debt gets a month of interest and
  *  its minimum payment. What the monthly amount has left (the extra, a one-off payment, the minimums of debts already paid)
  *  goes to the first open debt in strategy order: smallest starting balance for snowball, highest rate for avalanche.
- *  A debt whose `startDate` falls after `startMk` joins the plan the month after it starts. */
+ *  A debt whose `startDate` falls after `startMk` joins the plan the month after it starts. A one-off payment dated
+ *  `startMk` itself is taken off before the first row.
+ *  ponytail: interest is a twelfth of the APR on the balance at the start of each month; a statement can differ by a few dollars, the customer corrects the balance when it does. */
 export function simulate(debts: DebtLike[], plan: DebtPlan, startMk: MonthKey = currentMonthKey(), maxMonths = MAX_MONTHS) {
   const order = [...debts].sort((a, b) => (plan.method === 'snowball' ? a.balance - b.balance : b.apr - a.apr))
   const bal = new Map(order.map(d => [d.id, d.balance]))
@@ -55,6 +57,16 @@ export type Simulation = ReturnType<typeof simulate>
 /** True when the plan never reaches zero. */
 export const neverPaid = (s: { months: number }) => s.months >= MAX_MONTHS
 
+/** The plan as it applies from today: a one-off payment whose month has passed is gone, and one for this month is
+ *  reduced by what was paid this month since the plan was set, so a one-off already paid is not taken off twice. */
+export function planFromNow(plan: DebtPlan, payments: Payment[], today: ISODate = todayISO()): DebtPlan {
+  const once = plan.oneOff, cur = monthKey(today)
+  if (!once || once.month > cur) return plan
+  const paid = sum(payments.filter(p => !p.correction && monthKey(p.date) === cur && p.date <= today && (!plan.start || p.date >= plan.start)).map(p => p.amount))
+  const left = once.month === cur ? r2(once.amount - paid) : 0
+  return { ...plan, oneOff: left > 0 ? { ...once, amount: left } : undefined }
+}
+
 /** What a debt owes on `today`: the balance it started with, a month of interest at the start of each later month
  *  (the plan's own rule), and every payment logged up to today taken off. */
 export function owed(d: Debt, payments: Payment[], today: ISODate = todayISO()): number {
@@ -71,18 +83,34 @@ export function owed(d: Debt, payments: Payment[], today: ISODate = todayISO()):
 export const debtsNow = (debts: Debt[], payments: Payment[], today: ISODate = todayISO()): DebtLike[] =>
   debts.map(d => ({ id: d.id, name: d.name, apr: d.apr, minPayment: d.minPayment, balance: owed(d, payments, today) }))
 
+/** What typing a new balance for a debt becomes. While the debt is new (entered this month, nothing logged) it is the
+ *  starting balance itself; after that it is a balance correction for the difference, so the plan keeps its starting point.
+ *  Null when the balance is already that. */
+export function balanceEdit(d: Debt, payments: Payment[], balance: number, today: ISODate = todayISO()): { balance: number } | { correction: number } | null {
+  const fresh = !payments.some(p => p.debtId === d.id) && monthKey(d.startDate ?? today) === monthKey(today)
+  if (fresh) return balance === d.balance ? null : { balance }
+  const off = r2(owed(d, payments, today) - balance)
+  return off ? { correction: off } : null
+}
+
 export type Progress = 'ahead' | 'on' | 'due' | 'behind'
-/** The real total balance against what the payoff plan expected for this month, had it run since the first debt was entered.
- *  `due`: on plan through last month, with `by` still to pay this month. `behind`: `by` above the plan even before this month's payment. */
+/** The real total balance against what the payoff plan expected for this month. The plan is counted from the day its
+ *  settings were last changed, starting from what each debt owed then; a plan never changed, from the first debt.
+ *  `due`: on plan so far, with `by` still to pay this month. `behind`: `by` above the plan even before this month's payment. */
 export function planProgress(debts: Debt[], payments: Payment[], plan: DebtPlan, today: ISODate = todayISO()) {
   if (!debts.length) return null
   const cur = monthKey(today)
-  const since = debts.reduce((a, d) => (d.startDate && monthKey(d.startDate) < a ? monthKey(d.startDate) : a), cur)
+  const first = debts.reduce((a, d) => (d.startDate && d.startDate < a ? d.startDate : a), today)
+  const base = plan.start && plan.start > first ? plan.start : undefined
+  const earlier = base ? payments.filter(p => p.date < base) : []
+  const start: DebtLike[] = debts.map(d => (base && (d.startDate ?? today) < base ? { ...d, balance: owed(d, earlier, base), startDate: undefined } : d))
+  const since = monthKey(base ?? first)
   let n = 0
   for (let mk = since; mk < cur; mk = shiftMonth(mk, 1)) n++
-  const sim = simulate(debts, plan, since, n)
+  const sim = simulate(start, plan, since, n)
   const row = sim.rows[n - 1]
-  const expected = sim.left, before = row ? r2(row.balance + row.total) : expected
+  // What the plan owes this month before this month's payment: the last row with its payment put back, or the starting total.
+  const expected = sim.left, before = row ? r2(row.balance + row.total) : n ? expected : r2(sum(start.map(d => d.balance)))
   const real = r2(sum(debts.map(d => owed(d, payments, today))))
   const state: Progress = real < expected - 0.5 ? 'ahead' : real <= expected + 0.5 ? 'on' : real <= before + 0.5 ? 'due' : 'behind'
   return { since, expected, real, state, by: r2(Math.abs(real - (state === 'behind' ? before : expected))) }

@@ -4,7 +4,7 @@ import { useStore } from '../../store'
 import { useUI } from '../../ui-state'
 import { AnimatedNumber, Button, Card, CardHeader, Empty, IconButton, Metric, MetricTray, TableHead, TableRow } from '../ui'
 import { fmt, monthLabel, plural, todayISO } from '../../lib/money'
-import { autoPlan, monthlyNeed } from '../../lib/goals'
+import { autoPlan, goalStatus, monthlyNeed } from '../../lib/goals'
 import { useGoals, useSafeToSave } from '../goals/shared'
 
 /** The automatic plan: this month's safe-to-save split over the goals in priority order, written as contributions with one button. */
@@ -40,7 +40,7 @@ export default function GoalPlan() {
           <span className="w-32 text-right">This month</span>
         </TableHead>
         {plan.map(({ goal: g, amount }, i) => {
-          const needs = g.saved >= g.target ? 'Reached' : g.deadline ? (monthlyNeed(g) > 0 ? f(monthlyNeed(g)) : 'Deadline passed') : 'No deadline'
+          const status = goalStatus(g), needs = status ?? f(monthlyNeed(g))
           return (
             <TableRow key={g.id} className="tabular-nums">
               <span className="flex shrink-0 sm:w-16 max-sm:-ml-2">
@@ -49,7 +49,7 @@ export default function GoalPlan() {
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block truncate text-foreground">{g.name}</span>
-                <span className="block sm:hidden text-xs text-muted-foreground mt-0.5">{g.deadline && monthlyNeed(g) > 0 ? `Needs ${needs} per month` : needs}</span>
+                <span className="block sm:hidden text-xs text-muted-foreground mt-0.5">{status ?? `Needs ${needs} per month`}</span>
               </span>
               <span className="max-sm:hidden w-36 text-right text-muted-foreground">{needs}</span>
               <span className={amount > 0 ? 'sm:w-32 text-right text-foreground' : 'sm:w-32 text-right text-muted-foreground'}>{amount > 0 ? f(amount) : '—'}</span>

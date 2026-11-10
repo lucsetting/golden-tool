@@ -31,6 +31,15 @@ export function addDays(iso: string, n: number): string {
   const dt = new Date(y, m - 1, d + n)
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
+const local = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d) }
+/** "Jul 30, 2027" */
+export const fullDate = (iso: string) => dateFmt({ month: 'short', day: 'numeric', year: 'numeric' }).format(local(iso))
+/** "Jul 30" */
+export const shortDate = (iso: string) => dateFmt({ month: 'short', day: 'numeric' }).format(local(iso))
+/** "Fri" */
+export const weekday = (iso: string) => dateFmt({ weekday: 'short' }).format(local(iso))
+/** To whole cents. */
+export const round2 = (n: number) => Math.round(n * 100) / 100
 export function monthKey(date: string): string {
   return date.slice(0, 7)
 }
@@ -77,4 +86,4 @@ export function parseMoney(s: string): number {
   return negative ? -n : n
 }
 /** What the customer typed in an amount field, in cents. "12,50" and "12.5" both work. */
-export const parseAmount = (s: string) => Math.round(parseMoney(s) * 100) / 100
+export const parseAmount = (s: string) => round2(parseMoney(s))

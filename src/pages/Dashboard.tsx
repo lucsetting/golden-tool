@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { ArrowsRightLeftIcon, BanknotesIcon, CalendarDaysIcon, FireIcon, PlusIcon, ReceiptPercentIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { useUI } from '../ui-state'
+import { useCarried } from '../components/pro/carry'
 import { OTHER, budgetState, byCategory, cashFlow, dailyCumulative, dueSoon, expensesForMonth, monthStats, streak, weeklyRecap } from '../lib/calc'
 import { currentMonthKey, dateLabel, fmt, monthLabel, todayISO } from '../lib/money'
 import { AnimatedNumber, Button, Card, CardHeader, CategoryBadge, Empty, Metric, MetricTray, PageHeader, ProgressBar, TableRow } from '../components/ui'
@@ -33,10 +34,11 @@ export default function Dashboard() {
   const recap = useMemo(() => weeklyRecap(allExpenses, categories, today), [allExpenses, categories, today])
   const due = useMemo(() => dueSoon(recurring, today), [recurring, today])
   const run = useMemo(() => streak(allExpenses, limit, recurring), [allExpenses, limit, recurring])
-  // The budgets closest to their ceiling this month, fullest first.
+  const carried = useCarried(month)
+  // The budgets closest to their ceiling this month, fullest first. A budget includes what it carried over.
   const budgets = useMemo(() => categories.filter(c => c.budget)
-    .map(c => ({ c, spent: slices.find(s => s.category.id === c.id)?.amount ?? 0 }))
-    .sort((a, b) => b.spent / b.c.budget! - a.spent / a.c.budget!).slice(0, 3), [categories, slices])
+    .map(c => ({ c, budget: c.budget! + carried(c), spent: slices.find(s => s.category.id === c.id)?.amount ?? 0 }))
+    .sort((a, b) => b.spent / b.budget - a.spent / a.budget).slice(0, 3), [categories, slices, carried])
   // Only the longest streak is stored; today's is worked out from the expenses.
   useEffect(() => { if (run.longest > longest) useStore.getState().updateSettings({ longestStreak: run.longest }) }, [run.longest, longest])
   const m0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
@@ -128,14 +130,14 @@ export default function Dashboard() {
               {budgets.length > 0 && (
                 <Card>
                   <CardHeader title="Budgets" right={<Button variant="ghost" size="sm" onClick={() => setTab('budgets')}>See all</Button>} />
-                  {budgets.map(({ c, spent }) => {
-                    const state = budgetState(spent, c.budget)
+                  {budgets.map(({ c, spent, budget }) => {
+                    const state = budgetState(spent, budget)
                     return (
                       <TableRow key={c.id}>
                         <CategoryBadge category={c} size={32} />
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-baseline justify-between gap-2"><span className="truncate text-foreground">{c.name}</span><span className={state === 'over' ? 'text-destructive tabular-nums' : state === 'warn' ? 'text-warn tabular-nums' : 'text-muted-foreground tabular-nums'}>{m0(spent)} of {m0(c.budget!)}</span></span>
-                          <ProgressBar className="mt-2" value={(spent / c.budget!) * 100} tone={state === 'over' ? 'bad' : state === 'warn' ? 'warn' : undefined} />
+                          <span className="flex items-baseline justify-between gap-2"><span className="truncate text-foreground">{c.name}</span><span className={state === 'over' ? 'text-destructive tabular-nums' : state === 'warn' ? 'text-warn tabular-nums' : 'text-muted-foreground tabular-nums'}>{m0(spent)} of {m0(budget)}</span></span>
+                          <ProgressBar className="mt-2" value={(spent / budget) * 100} tone={state === 'over' ? 'bad' : state === 'warn' ? 'warn' : undefined} />
                         </span>
                       </TableRow>
                     )

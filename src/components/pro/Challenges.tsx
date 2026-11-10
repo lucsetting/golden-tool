@@ -4,13 +4,12 @@ import { useStore } from '../../store'
 import { useUI } from '../../ui-state'
 import { Button, Card, CardHeader, Chip, Dialog, Empty, Field, IconButton, Input, ProgressBar, Select, TableRow, cx } from '../ui'
 import { ESSENTIALS } from '../../lib/calc'
-import { addDays, dateLabel, fmt, plural, todayISO } from '../../lib/money'
+import { addDays, dateLabel, fmt, plural, shortDate, todayISO, weekday } from '../../lib/money'
 import { isRunning, noSpendWeek, week52 } from '../../lib/goals'
 import { deleteWithUndo } from '../../lib/undo'
 import { useGoals } from '../goals/shared'
-import type { Challenge } from '../../types'
+import type { Challenge, Expense } from '../../types'
 
-const shortDate = (iso: string) => new Date(iso + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 const TITLE = { '52week': '52-week challenge', nospend: 'No-spend week' }
 const end = (c: Challenge) => {
   const before = c.ended
@@ -126,7 +125,7 @@ function NoSpend({ c }: { c: Challenge }) {
         <ol className="grid grid-cols-7 gap-1.5">
           {w.days.map(d => (
             <li key={d.date} className={cx('rounded-lg py-2 flex flex-col items-center gap-1.5 text-xs', d.state === 'broken' ? 'bg-destructive-soft text-destructive' : d.state === 'ok' ? 'bg-muted text-foreground' : 'shadow-[inset_0_0_0_1px_var(--border)] text-muted-foreground')}>
-              <span>{new Date(d.date + 'T00:00').toLocaleDateString('en-US', { weekday: 'short' })}</span>
+              <span>{weekday(d.date)}</span>
               {d.state === 'ok' ? <CheckIcon className="h-4 w-4" aria-label="No expenses outside the allowed categories" /> : d.state === 'broken' ? <XMarkIcon className="h-4 w-4" aria-label="Broken" /> : <span className="h-4 leading-4" aria-label="Not yet">·</span>}
             </li>
           ))}
@@ -146,18 +145,22 @@ function NoSpend({ c }: { c: Challenge }) {
   )
 }
 
+/** How a challenge that is over went, in one line. */
+function outcome(c: Challenge, expenses: Expense[], currency: string) {
+  if (c.kind === '52week') { const w = week52(c); return w.finished ? 'All 52 weeks done' : `Ended after ${plural(c.done.length, 'week')}, ${fmt(w.saved, currency)} saved` }
+  const w = noSpendWeek(c, expenses)
+  return w.state === 'kept' ? 'Kept for all seven days' : w.state === 'broken' ? `Broken on ${dateLabel(w.days.find(d => d.state === 'broken')!.date)}` : `Ended early after ${plural(w.clean, 'day')}`
+}
+
 /** Savings challenges: the ones running, then the ones that are over. */
 export default function Challenges() {
   const challenges = useStore(s => s.challenges)
   const expenses = useStore(s => s.expenses)
   const currency = useStore(s => s.settings.currency)
   const [starting, setStarting] = useState<Challenge['kind'] | null>(null)
-  const running = challenges.filter(c => isRunning(c, expenses)), past = challenges.filter(c => !running.includes(c)).reverse()
-  const result = (c: Challenge) => {
-    if (c.kind === '52week') { const w = week52(c); return w.finished ? 'All 52 weeks done' : `Ended after ${plural(c.done.length, 'week')}, ${fmt(w.saved, currency)} saved` }
-    const w = noSpendWeek(c, expenses)
-    return w.state === 'kept' ? 'Kept for all seven days' : w.state === 'broken' ? `Broken on ${dateLabel(w.days.find(d => d.state === 'broken')!.date)}` : `Ended early after ${plural(w.clean, 'day')}`
-  }
+  const running = challenges.filter(c => isRunning(c))
+  // The ones that are over, newest first, each with how it went.
+  const past = useMemo(() => challenges.filter(c => !isRunning(c)).reverse().map(c => ({ c, result: outcome(c, expenses, currency) })), [challenges, expenses, currency])
   const buttons = (
     <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
       <Button onClick={() => setStarting('52week')}><PlusIcon /><span>52-week challenge</span></Button>
@@ -172,11 +175,11 @@ export default function Challenges() {
       {past.length > 0 && (
         <Card>
           <CardHeader title="Past challenges" />
-          {past.map(c => (
+          {past.map(({ c, result }) => (
             <TableRow key={c.id}>
               <span className="flex-1 min-w-0">
                 <span className="block text-foreground truncate">{TITLE[c.kind]}</span>
-                <span className="block text-xs text-muted-foreground mt-0.5">Started {shortDate(c.start)} · {result(c)}</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">Started {shortDate(c.start)} · {result}</span>
               </span>
               <IconButton size="sm" label={`Delete this ${TITLE[c.kind].toLowerCase()}`} onClick={() => deleteWithUndo('challenges', c.id, 'Challenge deleted')}><TrashIcon /></IconButton>
             </TableRow>

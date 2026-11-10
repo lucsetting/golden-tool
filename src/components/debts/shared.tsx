@@ -2,19 +2,24 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../../store'
 import { useUI } from '../../ui-state'
 import { Button, Card, Chip, Dialog, Field, Input, Select } from '../ui'
-import { debtsNow, owed, planProgress, type Progress } from '../../lib/debts'
-import { fmt, monthLabel, todayISO } from '../../lib/money'
+import { debtsNow, owed, planFromNow, planProgress, type Progress } from '../../lib/debts'
+import { fmt, fullDate, monthLabel, todayISO } from '../../lib/money'
 import { deleteWithUndo } from '../../lib/undo'
 import type { Payment } from '../../types'
 
-/** The debts as entered, as they stand today (`now`), the payments and the payoff plan's settings. */
+/** The debts as entered, as they stand today (`now`, with `owedNow` in total), and the payments. */
 export function useDebts() {
   const debts = useStore(s => s.debts)
   const payments = useStore(s => s.payments)
-  const plan = useStore(s => s.plan)
   const currency = useStore(s => s.settings.currency)
   const now = useMemo(() => debtsNow(debts, payments), [debts, payments])
-  return { debts, payments, plan, currency, now, owedNow: now.reduce((s, d) => s + d.balance, 0) }
+  return { debts, payments, currency, now, owedNow: now.reduce((s, d) => s + d.balance, 0) }
+}
+/** The payoff plan's settings as they apply from today: see `planFromNow`. */
+export function usePlan() {
+  const plan = useStore(s => s.plan)
+  const payments = useStore(s => s.payments)
+  return useMemo(() => planFromNow(plan, payments), [plan, payments])
 }
 
 /** Log a payment toward a debt, or edit one. `debtId` preselects the debt when adding. */
@@ -25,9 +30,11 @@ export function PaymentDialog({ payment, debtId, onClose }: { payment?: Payment;
   const [amount, setAmount] = useState(payment ? String(payment.amount) : '')
   const [date, setDate] = useState(payment?.date ?? todayISO())
   const [tried, setTried] = useState(false)
+  // The balance typed for a debt already holds everything paid before the day it was entered.
+  const entered = debts.find(d => d.id === debt)?.startDate ?? ''
   const errs = {
     amount: Number(amount) > 0 ? undefined : 'Enter an amount greater than 0',
-    date: date && date <= todayISO() ? undefined : 'Pick a valid date (not in the future)',
+    date: !date || date > todayISO() ? 'Pick a valid date (not in the future)' : date < entered ? `This debt was entered on ${fullDate(entered)}. Pick that day or a later one` : undefined,
   }
   const save = () => {
     setTried(true)
@@ -47,7 +54,7 @@ export function PaymentDialog({ payment, debtId, onClose }: { payment?: Payment;
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Amount" error={tried ? errs.amount : undefined}><Input type="number" inputMode="decimal" min="0" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} autoFocus /></Field>
-          <Field label="Date" error={tried ? errs.date : undefined}><Input type="date" max={todayISO()} value={date} onChange={e => setDate(e.target.value)} /></Field>
+          <Field label="Date" error={tried ? errs.date : undefined}><Input type="date" min={entered} max={todayISO()} value={date} onChange={e => setDate(e.target.value)} /></Field>
         </div>
         <div className="flex items-center gap-2 [&>button]:max-sm:flex-1">
           {payment && <Button variant="destructive" onClick={() => { deleteWithUndo('payments', payment.id, 'Payment deleted'); onClose() }}>Delete</Button>}
@@ -60,12 +67,13 @@ export function PaymentDialog({ payment, debtId, onClose }: { payment?: Payment;
   )
 }
 
-const STATE: Record<Progress, { chip: string; tone: 'good' | 'outline' | 'warn' | 'bad' }> = {
+const PROGRESS_CHIP: Record<Progress, { chip: string; tone: 'good' | 'outline' | 'warn' | 'bad' }> = {
   ahead: { chip: 'Ahead of plan', tone: 'good' }, on: { chip: 'On plan', tone: 'outline' }, due: { chip: 'On plan', tone: 'outline' }, behind: { chip: 'Behind plan', tone: 'bad' },
 }
 /** Where the customer stands against the payoff plan: the two balances and the difference, as numbers. */
 export function PlanProgress({ onLog }: { onLog?: () => void }) {
-  const { debts, payments, plan, currency } = useDebts()
+  const { debts, payments, currency } = useDebts()
+  const plan = useStore(s => s.plan)
   const p = useMemo(() => planProgress(debts, payments, plan), [debts, payments, plan])
   if (!p) return null
   const f = (n: number) => fmt(n, currency), month = monthLabel(todayISO().slice(0, 7))
@@ -76,7 +84,7 @@ export function PlanProgress({ onLog }: { onLog?: () => void }) {
     <Card>
       <div className="p-4 sm:p-5 flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="min-w-0 flex-1 basis-64 text-sm">
-          <div className="flex flex-wrap items-center gap-2 text-foreground"><Chip tone={STATE[p.state].tone}>{STATE[p.state].chip}</Chip><span>{line}</span></div>
+          <div className="flex flex-wrap items-center gap-2 text-foreground"><Chip tone={PROGRESS_CHIP[p.state].tone}>{PROGRESS_CHIP[p.state].chip}</Chip><span>{line}</span></div>
           <p className="mt-2 text-muted-foreground leading-5 tabular-nums">You owe {f(p.real)}. The plan expected {f(p.expected)} by the end of {month}, counted from {monthLabel(p.since)}.</p>
         </div>
         {onLog && p.real > 0 && <Button className="max-sm:w-full" onClick={onLog}>Log payment</Button>}

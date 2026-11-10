@@ -4,20 +4,13 @@ import { useStore } from '../../store'
 import { AnimatedNumber, Button, Card, CardHeader, Chip, Dialog, Empty, Field, IconButton, Input, Metric, MetricTray, ProgressBar, TableHead, TableRow } from '../ui'
 import ChartCard, { LegendKey } from '../charts/ChartCard'
 import Curve from '../charts/Curve'
-import { dateLabel, fmt, monthLabel, todayISO } from '../../lib/money'
-import { contributionsOf, milestones, monthlyNeed, pacePerMonth, paceSeries, type GoalNow } from '../../lib/goals'
+import { dateLabel, fmt, fullDate, monthLabel, todayISO } from '../../lib/money'
+import { contributionsOf, goalStatus, milestones, monthlyNeed, pacePerMonth, paceSeries, type GoalNow } from '../../lib/goals'
 import { deleteWithUndo } from '../../lib/undo'
 import { ContributionDialog, GOAL_COLOR, SOURCE, useGoals } from '../goals/shared'
 import type { Contribution } from '../../types'
 
-const fullDate = (iso: string) => new Date(iso + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-
-function need(g: GoalNow, currency: string) {
-  if (g.target - g.saved <= 0) return 'Goal reached'
-  if (!g.deadline) return 'No deadline'
-  if (g.deadline <= todayISO()) return 'Deadline passed'
-  return `${fmt(monthlyNeed(g), currency)} per month until ${fullDate(g.deadline)}`
-}
+const need = (g: GoalNow, currency: string) => goalStatus(g) ?? `${fmt(monthlyNeed(g), currency)} per month until ${fullDate(g.deadline!)}`
 
 /** Add a goal, or edit one. What is already saved is asked once, when the goal is added: it becomes the opening contribution. */
 function GoalForm({ goal, onClose }: { goal?: GoalNow; onClose: () => void }) {
@@ -58,11 +51,11 @@ function GoalDetail({ g, onBack, onEdit }: { g: GoalNow; onBack: () => void; onE
   const { contributions, currency } = useGoals()
   const [dialog, setDialog] = useState<{ contribution?: Contribution } | null>(null)
   const mine = useMemo(() => contributionsOf(g.id, contributions), [g.id, contributions])
-  const series = useMemo(() => paceSeries(g, mine).map(p => ({ x: p.t, label: fullDate(p.date), a: p.saved, b: p.pace })), [g, mine])
+  const series = useMemo(() => paceSeries(g, mine).map(p => ({ x: p.t, label: fullDate(p.date), value: p.saved, compare: p.pace })), [g, mine])
   const marks = useMemo(() => milestones(g, mine), [g, mine])
   const pace = pacePerMonth(mine), needed = monthlyNeed(g), pct = g.target > 0 ? (g.saved / g.target) * 100 : 0
   const f = (n: number) => fmt(n, currency)
-  const hasPace = series.some(p => p.b !== null)
+  const hasPace = series.some(p => p.compare !== null)
   const expected = marks[3].expected
   return (
     <div className="space-y-6">
@@ -75,7 +68,7 @@ function GoalDetail({ g, onBack, onEdit }: { g: GoalNow; onBack: () => void; onE
       </div>
       <MetricTray>
         <Metric label="Saved" value={<AnimatedNumber value={g.saved} format={f} />} sub={`${Math.round(pct)}% of ${f(g.target)}`} />
-        <Metric label="Needed per month" value={needed > 0 ? <AnimatedNumber value={needed} format={f} /> : '—'} sub={needed > 0 ? `Until ${fullDate(g.deadline!)}` : need(g, currency)} />
+        <Metric label="Needed per month" value={needed > 0 ? <AnimatedNumber value={needed} format={f} /> : '—'} sub={goalStatus(g) ?? `Until ${fullDate(g.deadline!)}`} />
         <Metric label="Your pace" tone={needed > 0 && pace >= needed ? 'good' : undefined} value={<AnimatedNumber value={pace} format={f} />} sub="Per month, last three months" />
       </MetricTray>
       <ChartCard label={g.name} value={<AnimatedNumber value={g.saved} format={f} />}

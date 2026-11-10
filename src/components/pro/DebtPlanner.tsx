@@ -4,12 +4,12 @@ import { useStore } from '../../store'
 import { AnimatedNumber, Button, Card, CardHeader, Chip, Dialog, Empty, Field, IconButton, Input, Metric, MetricTray, Segmented, TableHead, TableRow } from '../ui'
 import ChartCard from '../charts/ChartCard'
 import Curve from '../charts/Curve'
-import { currentMonthKey, fmt, monthAhead, monthLabel, plural, todayISO } from '../../lib/money'
-import { minimumOnly, neverPaid, owed, simulate, type DebtLike } from '../../lib/debts'
+import { fmt, monthAhead, monthLabel, plural, todayISO } from '../../lib/money'
+import { STRATEGY, balanceEdit, minimumOnly, neverPaid, simulate, type DebtLike } from '../../lib/debts'
 import { deleteWithUndo } from '../../lib/undo'
-import { PaymentDialog, PlanProgress, useDebts } from '../debts/shared'
+import { PaymentDialog, PlanProgress, useDebts, usePlan } from '../debts/shared'
 
-/** Add a debt, or edit one. The balance field is what is owed today: changing it on a debt with history is kept as a correction. */
+/** Add a debt, or edit one. The balance field is what is owed today; what a change to it becomes is `balanceEdit`. */
 function DebtForm({ debt, onClose }: { debt?: DebtLike; onClose: () => void }) {
   const [name, setName] = useState(debt?.name ?? '')
   const [balance, setBalance] = useState(debt ? String(debt.balance) : '')
@@ -20,11 +20,10 @@ function DebtForm({ debt, onClose }: { debt?: DebtLike; onClose: () => void }) {
     const st = useStore.getState(), today = todayISO(), fields = { name: name.trim(), apr: Number(apr), minPayment: Number(min) }
     if (!debt) st.addTo('debts', { ...fields, balance: Number(balance), startDate: today })
     else {
-      const fresh = !st.payments.some(p => p.debtId === debt.id) && (st.debts.find(d => d.id === debt.id)?.startDate ?? today).slice(0, 7) === today.slice(0, 7)
-      st.patchIn('debts', debt.id, fresh ? { ...fields, balance: Number(balance) } : fields)
-      const after = useStore.getState(), now = owed(after.debts.find(d => d.id === debt.id)!, after.payments)
-      const off = Math.round((now - Number(balance)) * 100) / 100
-      if (off) st.addTo('payments', { debtId: debt.id, amount: off, date: today, correction: true })
+      st.patchIn('debts', debt.id, fields) // first, because a new APR changes what is owed
+      const after = useStore.getState(), edit = balanceEdit(after.debts.find(d => d.id === debt.id)!, after.payments, Number(balance))
+      if (edit && 'balance' in edit) st.patchIn('debts', debt.id, edit)
+      else if (edit) st.addTo('payments', { debtId: debt.id, amount: edit.correction, date: today, correction: true })
     }
     onClose()
   }
@@ -45,7 +44,8 @@ function DebtForm({ debt, onClose }: { debt?: DebtLike; onClose: () => void }) {
 }
 
 export default function DebtPlanner() {
-  const { now: debts, plan, currency, owedNow } = useDebts()
+  const { now: debts, currency, owedNow } = useDebts()
+  const plan = usePlan()
   const [sheet, setSheet] = useState<{ debt?: DebtLike } | null>(null)
   const [paying, setPaying] = useState<string | null>(null) // debt id, or '' for no debt picked
   const { sim, base, snow, ava } = useMemo(() => ({
@@ -56,12 +56,14 @@ export default function DebtPlanner() {
   const saved = Math.max(0, base.interestPaid - sim.interestPaid)
   const f = (n: number) => fmt(n, currency), f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
   const when = (s: { months: number }) => (neverPaid(s) ? 'Not reached' : monthAhead(s.months))
-  const paidOff = (d: DebtLike) => (d.balance <= 0 ? 'Paid' : sim.payoffMonth.has(d.id) ? monthAhead(sim.payoffMonth.get(d.id)!) : 'Not reached')
+  const ends = (s: typeof sim, d: DebtLike) => (s.payoffMonth.has(d.id) ? monthAhead(s.payoffMonth.get(d.id)!) : undefined)
+  const paidOff = (d: DebtLike) => (d.balance <= 0 ? 'Paid' : ends(sim, d) ?? 'Not reached')
   const add = <Button variant="primary" size="sm" className="relative after:absolute after:-inset-1.5" onClick={() => setSheet({})}><PlusIcon /><span>Add debt</span></Button>
-  const oneOff = plan.oneOff && plan.oneOff.month >= currentMonthKey() ? plan.oneOff : undefined
-  const curve = useMemo(() => [{ x: 0, label: 'Today', a: owedNow }, ...sim.rows.map(r => ({ x: r.month, label: monthAhead(r.month), a: r.balance }))], [sim, owedNow])
-  const ends = debts.filter(d => sim.payoffMonth.get(d.id)).map(d => ({ d, month: sim.payoffMonth.get(d.id)! })).sort((a, b) => a.month - b.month)
-  const open = debts.filter(d => d.balance > 0)
+  const oneOff = plan.oneOff
+  const curve = useMemo(() => [{ x: 0, label: 'Today', value: owedNow }, ...sim.rows.map(r => ({ x: r.month, label: monthAhead(r.month), value: r.balance }))], [sim, owedNow])
+  const open = useMemo(() => debts.filter(d => d.balance > 0), [debts])
+  const paidIn = open.filter(d => sim.payoffMonth.has(d.id)).map(d => ({ d, month: sim.payoffMonth.get(d.id)! })).sort((a, b) => a.month - b.month)
+  const alone = useMemo(() => new Map(open.map(d => [d.id, minimumOnly(d)])), [open])
   const gap = Math.round((snow.interestPaid - ava.interestPaid) * 100) / 100
 
   return (
@@ -69,7 +71,7 @@ export default function DebtPlanner() {
       {debts.length > 0 && (
         <>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <Segmented value={plan.method} onChange={method => useStore.getState().setPlan({ method })} options={[{ value: 'snowball', label: 'Snowball' }, { value: 'avalanche', label: 'Avalanche' }]}
+            <Segmented value={plan.method} onChange={method => useStore.getState().setPlan({ method })} options={[{ value: 'snowball', label: STRATEGY.snowball }, { value: 'avalanche', label: STRATEGY.avalanche }]}
               className="max-sm:flex max-sm:w-full max-sm:[&>button]:flex-1" />
             <label className="flex items-center justify-between gap-3 text-sm text-muted-foreground max-sm:w-full">
               Extra per month
@@ -92,9 +94,9 @@ export default function DebtPlanner() {
           </MetricTray>
           {open.length > 0 && !capped && (
             <ChartCard label="Total balance" value={<AnimatedNumber value={owedNow} format={f0} />} sub={`Reaches zero in ${monthAhead(sim.months)}`}>
-              <div className="pb-1"><Curve data={curve} names={['Balance']} currency={currency} dots={ends.map(e => ({ x: e.month, y: sim.rows[e.month - 1].balance }))} /></div>
+              <div className="pb-1"><Curve data={curve} names={['Balance']} currency={currency} dots={paidIn.filter(e => e.month > 0).map(e => ({ x: e.month, y: sim.rows[e.month - 1].balance }))} /></div>
               <ul className="px-5 py-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-muted-foreground border-t border-border">
-                {ends.map(e => <li key={e.d.id} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2" style={{ borderColor: 'var(--chart)' }} />{e.d.name} paid off in {monthAhead(e.month)}</li>)}
+                {paidIn.map(e => <li key={e.d.id} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-2" style={{ borderColor: 'var(--chart)' }} />{e.d.name} paid off in {monthAhead(e.month)}</li>)}
               </ul>
             </ChartCard>
           )}
@@ -146,9 +148,9 @@ export default function DebtPlanner() {
           <Card>
             <CardHeader title="Strategies side by side" right={<span className="text-xs text-muted-foreground max-sm:hidden">Same payments, different order</span>} />
             <div className="grid sm:grid-cols-2 sm:divide-x divide-border max-sm:divide-y">
-              {([['snowball', 'Snowball', 'Smallest balance first', snow], ['avalanche', 'Avalanche', 'Highest rate first', ava]] as const).map(([key, title, rule, s]) => (
+              {([['snowball', 'Smallest balance first', snow], ['avalanche', 'Highest rate first', ava]] as const).map(([key, rule, s]) => (
                 <div key={key} className="p-4 sm:p-5 text-sm">
-                  <div className="flex items-center gap-2 text-foreground">{title}{plan.method === key && <Chip tone="outline">Your plan</Chip>}</div>
+                  <div className="flex items-center gap-2 text-foreground">{STRATEGY[key]}{plan.method === key && <Chip tone="outline">Your plan</Chip>}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">{rule}</div>
                   <dl className="mt-4 space-y-2 tabular-nums">
                     <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Debt-free</dt><dd className={neverPaid(s) ? 'text-destructive' : 'text-foreground'}>{when(s)}</dd></div>
@@ -172,13 +174,13 @@ export default function DebtPlanner() {
               <span className="w-56 text-right">In your plan</span>
             </TableHead>
             {open.map(d => {
-              const m = minimumOnly(d), inPlan = sim.payoffMonth.get(d.id)
-              const alone = m.never ? 'Never paid off' : `${monthAhead(m.months)} · ${f(m.interest)} interest`
-              const planned = inPlan ? `${monthAhead(inPlan)} · ${f(sim.interestBy.get(d.id) ?? 0)} interest` : 'Not reached'
+              const m = alone.get(d.id)!, inPlan = ends(sim, d)
+              const minimum = m.never ? 'Never paid off' : `${monthAhead(m.months)} · ${f(m.interest)} interest`
+              const planned = inPlan ? `${inPlan} · ${f(sim.interestBy.get(d.id) ?? 0)} interest` : 'Not reached'
               return (
                 <TableRow key={d.id} className="tabular-nums max-sm:flex-col max-sm:items-stretch max-sm:gap-1.5">
                   <span className="flex-1 min-w-0 truncate text-foreground">{d.name}</span>
-                  <span className={`sm:w-56 sm:text-right max-sm:flex max-sm:justify-between max-sm:text-xs ${m.never ? 'text-destructive' : 'text-muted-foreground'}`}><span className="sm:hidden text-muted-foreground">Minimum only</span>{alone}</span>
+                  <span className={`sm:w-56 sm:text-right max-sm:flex max-sm:justify-between max-sm:text-xs ${m.never ? 'text-destructive' : 'text-muted-foreground'}`}><span className="sm:hidden text-muted-foreground">Minimum only</span>{minimum}</span>
                   <span className="sm:w-56 sm:text-right max-sm:flex max-sm:justify-between max-sm:text-xs"><span className="sm:hidden text-muted-foreground">In your plan</span>{planned}</span>
                 </TableRow>
               )

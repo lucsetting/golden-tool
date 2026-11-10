@@ -79,7 +79,7 @@ export default function Reports() {
                   <span className="w-20 sm:w-24 text-right text-muted-foreground">{f0(yc.prev)}</span>
                   <span className="w-20 sm:w-24 text-right">{diff(yc.diff)}</span>
                 </div>
-                {yc.months < 12 && <p className="px-4 py-3 text-xs text-muted-foreground border-t border-border">The total covers the {plural(yc.months, 'month')} that have expenses in both years.</p>}
+                {yc.months < 12 && <p className="px-4 py-3 text-xs text-muted-foreground border-t border-border">The total covers the {plural(yc.months, 'complete month')} that have expenses in both years.</p>}
               </div>
             )}
           </Card>

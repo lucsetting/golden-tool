@@ -1,7 +1,7 @@
 import { create, type StateCreator, type StoreMutatorIdentifier } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Category, Challenge, Contribution, Debt, DebtPlan, Expense, Goal, Holding, Income, NetWorthSnapshot, Payment, Recurring, Settings } from './types'
-import { monthKey, todayISO, uid } from './lib/money'
+import { monthKey, round2, todayISO, uid } from './lib/money'
 import { normName, postings } from './lib/calc'
 import { debtsNow } from './lib/debts'
 import { netWorth } from './lib/vision'
@@ -107,16 +107,18 @@ function legacyPlan(): DebtPlan {
 
 /** Brings stored, synced or imported state to the current shape: every list present, defaults under the settings,
  *  and nothing it carries removed (fields written by a newer version stay). Running it twice changes nothing.
- *  Version 4: a goal's `saved` number becomes contributions (whatever the contributions do not already explain, so a
- *  device still on version 3 cannot make it count twice), and a debt gets the day its balance was true. */
+ *  Version 4: a debt gets the day its balance was true, and a goal's `saved` number becomes contributions: whatever
+ *  of it the contributions do not already explain, so the copy of a device still on version 3 cannot count twice.
+ *  ponytail: a `saved` below the contributions is taken for such an old copy and adds nothing; money that device
+ *  took out of a goal the old way is not followed. */
 export function migrate(raw: unknown): Data {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>
   const list = <T,>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : [])
   const today = todayISO()
   const contributions = [...list(r.contributions)]
   const goals = list(r.goals as (Goal & { saved?: number })[]).map(({ saved, ...g }) => {
-    const missing = Math.round(((Number(saved) || 0) - contributions.filter(c => c.goalId === g.id).reduce((s, c) => s + c.amount, 0)) * 100) / 100
-    if (typeof saved === 'number' && missing) contributions.push({ id: uid(), goalId: g.id, amount: missing, date: today, source: 'opening' })
+    const missing = round2((Number(saved) || 0) - contributions.filter(c => c.goalId === g.id).reduce((s, c) => s + c.amount, 0))
+    if (missing > 0) contributions.push({ id: uid(), goalId: g.id, amount: missing, date: today, source: 'opening' })
     return g
   })
   return {
@@ -230,7 +232,7 @@ export const useStore = create<State>()(
         return added
       },
       patchIn: (key, id, patch) => set(s => ({ [key]: (s[key] as { id: string }[]).map(x => (x.id === id ? { ...x, ...patch } : x)) })),
-      setPlan: patch => set(s => ({ plan: { ...s.plan, ...patch } })),
+      setPlan: patch => set(s => ({ plan: { ...s.plan, ...patch, start: todayISO() } })),
       moveGoal: (id, by) => set(s => {
         const i = s.goals.findIndex(g => g.id === id), j = i + by, goals = [...s.goals]
         if (i < 0 || j < 0 || j >= goals.length) return {}
@@ -265,10 +267,10 @@ export const useStore = create<State>()(
   )),
 )
 
-// Net worth keeps one snapshot per month, rewritten whenever a value behind it changes. Nothing is kept for a customer who lists no asset or liability.
+// Net worth keeps one snapshot per month, rewritten whenever a value behind it changes.
 useStore.subscribe((s, prev) => {
   if (s.assets === prev.assets && s.liabilities === prev.liabilities && s.debts === prev.debts && s.payments === prev.payments) return
-  if (isReadOnly(s.settings) || (!s.assets.length && !s.liabilities.length && !s.netWorth.length)) return
+  if (isReadOnly(s.settings) || (!s.assets.length && !s.liabilities.length && !s.debts.length && !s.netWorth.length)) return
   const month = monthKey(todayISO()), now = netWorth(s.assets, s.liabilities, debtsNow(s.debts, s.payments))
   const old = s.netWorth.find(n => n.month === month)
   if (old?.assets === now.assets && old.liabilities === now.liabilities) return

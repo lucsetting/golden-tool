@@ -4,8 +4,10 @@ import { useStore } from '../../store'
 import { useUI } from '../../ui-state'
 import { Button, Card, CardHeader, CategoryBadge, Chip, Dialog, Segmented, Switch, TableRow, dialogFooterCls } from '../ui'
 import { MODULES } from '../../lib/modules'
-import { averageIncome, fiftyThirtyTwenty, groupOf, rollover, type Group } from '../../lib/vision'
-import { currentMonthKey, fmt, monthKey, monthLabel, shiftMonth } from '../../lib/money'
+import { hasModule } from '../../lib/access'
+import { averageIncome, fiftyThirtyTwenty, groupOf, usualSpend, type Group } from '../../lib/vision'
+import { currentMonthKey, fmt, monthLabel, shiftMonth } from '../../lib/money'
+import { useCarried } from './carry'
 
 /** The 50/30/20 preset: the three amounts from the average income, each category as a need or a want, and the budgets that follow. */
 function Preset({ onClose }: { onClose: () => void }) {
@@ -16,12 +18,7 @@ function Preset({ onClose }: { onClose: () => void }) {
   const shown = useMemo(() => categories.filter(c => !c.hidden), [categories])
   const [groups, setGroups] = useState<Record<string, Group>>(() => Object.fromEntries(shown.map(c => [c.id, groupOf(c)])))
   const income = useMemo(() => averageIncome(incomes), [incomes])
-  // What each category usually costs: its average over the last three complete months.
-  const usual = useMemo(() => {
-    const cur = currentMonthKey(), from = shiftMonth(cur, -3), m = new Map<string, number>()
-    for (const e of expenses) if (monthKey(e.date) >= from && monthKey(e.date) < cur) m.set(e.categoryId, (m.get(e.categoryId) ?? 0) + e.amount / 3)
-    return m
-  }, [expenses])
+  const usual = useMemo(() => usualSpend(expenses), [expenses])
   const split = useMemo(() => fiftyThirtyTwenty(income, shown.map(c => ({ id: c.id, group: groups[c.id] })), usual), [income, shown, groups, usual])
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
   const apply = () => {
@@ -53,7 +50,7 @@ function Preset({ onClose }: { onClose: () => void }) {
               <div key={c.id} className="min-h-12 px-5 sm:px-6 py-2 flex items-center gap-3 text-sm border-b border-border last:border-b-0">
                 <CategoryBadge category={c} />
                 <span className="flex-1 min-w-0 truncate text-foreground">{c.name}</span>
-                <Segmented value={groups[c.id]} onChange={g => setGroups(s => ({ ...s, [c.id]: g }))} options={[{ value: 'needs', label: 'Need' }, { value: 'wants', label: 'Want' }]} className="ctl-sm!" />
+                <Segmented value={groups[c.id]} onChange={g => setGroups(s => ({ ...s, [c.id]: g }))} options={[{ value: 'needs', label: 'Need' }, { value: 'wants', label: 'Want' }]} />
                 <span className="w-16 text-right tabular-nums text-foreground">{split.budgets.get(c.id) ? f0(split.budgets.get(c.id)!) : '—'}</span>
               </div>
             ))}
@@ -71,17 +68,23 @@ function Preset({ onClose }: { onClose: () => void }) {
 
 /** Golden Vision on the Budgets screen: the 50/30/20 preset, rollover per category and the way to the budget report.
  *  Without the add-on the same card is shown inert under a line that says what it is. */
-export default function AdvancedBudgeting({ unlocked, month, spentLast }: { unlocked: boolean; month: string; spentLast: Map<string, number> }) {
+export default function AdvancedBudgeting({ month }: { month: string }) {
   const categories = useStore(s => s.categories)
   const currency = useStore(s => s.settings.currency)
+  const incomes = useStore(s => s.incomes)
+  const unlocked = useStore(s => hasModule(s.settings, 'reports'))
+  const carried = useCarried(month)
   const [preset, setPreset] = useState(false)
+  const income = useMemo(() => averageIncome(incomes), [incomes])
+  const rule = fiftyThirtyTwenty(income, [], new Map())
+  const last = monthLabel(shiftMonth(month, -1), 'short')
   const budgeted = categories.filter(c => c.budget)
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
   const setTab = useUI.getState().setTab
   const body = (
     <>
       <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border">
-        <div className="min-w-0 text-sm"><div className="text-foreground">50/30/20 preset</div><div className="text-muted-foreground mt-0.5">Fill every budget from your average income: half for needs, 30% for wants, 20% as a savings target.</div></div>
+        <div className="min-w-0 text-sm"><div className="text-foreground">50/30/20 preset</div><div className="text-muted-foreground mt-0.5">Fill every budget from your average income: half for needs, 30% for wants, 20% as a savings target.</div>{income > 0 && <div className="text-muted-foreground mt-1 tabular-nums">With {f0(income)} a month: {f0(rule.needs)} for needs, {f0(rule.wants)} for wants, savings target {f0(rule.savings)}.</div>}</div>
         <Button className="shrink-0" onClick={() => setPreset(true)}>Fill budgets</Button>
       </div>
       <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border">
@@ -90,13 +93,13 @@ export default function AdvancedBudgeting({ unlocked, month, spentLast }: { unlo
       </div>
       <div className="p-4 text-sm"><div className="text-foreground">Rollover</div><div className="text-muted-foreground mt-0.5">What a budget left unused last month is added to this month, up to one month of that budget.</div></div>
       {budgeted.length === 0 ? <p className="px-4 pb-4 text-sm text-muted-foreground">Give a category a budget to switch rollover on for it.</p> : budgeted.map(c => {
-        const carried = c.rollover ? rollover(c.budget!, spentLast.get(c.id) ?? 0) : 0
+        const extra = carried(c)
+        const note = !c.rollover ? '' : c.rollover >= month ? `Counts from ${monthLabel(shiftMonth(c.rollover, 1), 'short')}` : extra > 0 ? `+${f0(extra)} from ${last}` : `No unused budget in ${last}`
         return (
           <TableRow key={c.id} className="border-t! border-b-0! tabular-nums">
             <CategoryBadge category={c} />
-            <span className="flex-1 min-w-0 truncate text-foreground">{c.name}</span>
-            {c.rollover && <span className="text-xs text-muted-foreground">{carried > 0 ? `+${f0(carried)} from ${monthLabel(shiftMonth(month, -1), 'short')}` : `Nothing left over in ${monthLabel(shiftMonth(month, -1), 'short')}`}</span>}
-            <Switch checked={!!c.rollover} onChange={v => useStore.getState().updateCategory(c.id, { rollover: v || undefined })} label={`Rollover for ${c.name}`} />
+            <span className="flex-1 min-w-0"><span className="block truncate text-foreground">{c.name}</span>{note && <span className="block text-xs text-muted-foreground mt-0.5">{note}</span>}</span>
+            <Switch checked={!!c.rollover} onChange={on => useStore.getState().updateCategory(c.id, { rollover: on ? currentMonthKey() : undefined })} label={`Rollover for ${c.name}`} />
           </TableRow>
         )
       })}

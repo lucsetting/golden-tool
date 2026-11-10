@@ -1,7 +1,6 @@
 import type { Challenge, Contribution, Expense, Goal, ISODate, MonthKey } from '../types'
-import { addDays, monthKey, shiftMonth, todayISO } from './money'
+import { addDays, monthKey, round2 as r2, shiftMonth, todayISO } from './money'
 
-const r2 = (n: number) => Math.round(n * 100) / 100
 const time = (iso: ISODate) => new Date(iso + 'T00:00').getTime()
 const daysBetween = (a: ISODate, b: ISODate) => Math.round((time(b) - time(a)) / 864e5)
 
@@ -16,7 +15,12 @@ export function withSaved(goals: Goal[], contributions: Contribution[]): GoalNow
 export const contributionsOf = (goalId: string, contributions: Contribution[]) =>
   contributions.filter(c => c.goalId === goalId).sort((a, b) => a.date.localeCompare(b.date))
 
-/** Amount to set aside per month from now to hit the deadline; 0 when reached, with no deadline or with the deadline passed. */
+/** Why a goal asks for nothing per month, or null when it does ask. */
+export function goalStatus(g: GoalNow, today: ISODate = todayISO()) {
+  return g.saved >= g.target ? 'Goal reached' : !g.deadline ? 'No deadline' : g.deadline <= today ? 'Deadline passed' : null
+}
+/** Amount to set aside per month from now to hit the deadline; 0 when reached, with no deadline or with the deadline passed.
+ *  ponytail: a month is 30.44 days here, so the count of months left can be one off around a month end. */
 export function monthlyNeed(g: GoalNow, today: ISODate = todayISO()): number {
   const left = g.target - g.saved
   if (left <= 0 || !g.deadline) return 0
@@ -24,7 +28,8 @@ export function monthlyNeed(g: GoalNow, today: ISODate = todayISO()): number {
   return days <= 0 ? 0 : left / Math.max(1, Math.ceil(days / 30.44))
 }
 
-/** What the customer set aside per month over the last three months (91 days). The opening amount is not pace. */
+/** What the customer set aside per month over the last three months (91 days). The opening amount is not pace.
+ *  ponytail: always divided by three, so a goal younger than three months reads slower than it is; divide by its age if customers notice. */
 export function pacePerMonth(mine: Contribution[], today: ISODate = todayISO()): number {
   const from = addDays(today, -91)
   return r2(mine.filter(c => c.source !== 'opening' && c.date > from && c.date <= today).reduce((s, c) => s + c.amount, 0) / 3)
@@ -57,6 +62,12 @@ export function paceSeries(g: Goal, mine: Contribution[], today: ISODate = today
     saved: d <= today ? at(d) : null,
     pace: span ? r2(from + ((g.target - from) * Math.min(span, daysBetween(start, d))) / span) : null,
   }))
+}
+
+/** What went to the goals that still exist in the month of `today`. The opening amount is not this month's saving. */
+export function setAside(contributions: Contribution[], goals: Goal[], today: ISODate = todayISO()) {
+  const mk = monthKey(today), ids = new Set(goals.map(g => g.id))
+  return r2(contributions.filter(c => ids.has(c.goalId) && monthKey(c.date) === mk && c.source !== 'opening').reduce((s, c) => s + c.amount, 0))
 }
 
 /** This month's amount for each goal, in priority order: each goal first gets what it needs per month for its deadline,
@@ -102,8 +113,9 @@ export function noSpendWeek(c: Challenge, expenses: Expense[], today: ISODate = 
   const broken = days.some(d => d.state === 'broken')
   return { days, state: broken ? 'broken' as const : today > addDays(c.start, 6) && !c.ended ? 'kept' as const : 'running' as const, clean: days.filter(d => d.state === 'ok').length }
 }
-/** A challenge the customer can still act on. */
-export function isRunning(c: Challenge, expenses: Expense[], today: ISODate = todayISO()) {
+/** A challenge still in its time: not ended by the customer, and its weeks or its seven days not over yet.
+ *  A broken no-spend week stays in view until its last day, so the customer sees what broke it. */
+export function isRunning(c: Challenge, today: ISODate = todayISO()) {
   if (c.ended) return false
-  return c.kind === '52week' ? !week52(c, today).finished : noSpendWeek(c, expenses, today).state === 'running'
+  return c.kind === '52week' ? !week52(c, today).finished : today <= addDays(c.start, 6)
 }

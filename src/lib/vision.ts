@@ -1,8 +1,7 @@
-import type { Category, Expense, Holding, Income, ISODate, MonthKey } from '../types'
+import type { Category, Expense, Holding, Income, ISODate, MonthKey, NetWorthSnapshot } from '../types'
 import { ESSENTIALS, OTHER, total } from './calc'
-import { currentMonthKey, daysInMonth, monthKey, shiftMonth, todayISO } from './money'
+import { currentMonthKey, daysInMonth, monthKey, round2 as r2, shiftMonth, todayISO } from './money'
 
-const r2 = (n: number) => Math.round(n * 100) / 100
 const mean = (ns: number[]) => (ns.length ? ns.reduce((s, n) => s + n, 0) / ns.length : 0)
 /** Spending per category per month: `get(categoryId)?.get(month)`. */
 function byCategoryMonth(expenses: Expense[]) {
@@ -14,17 +13,21 @@ function byCategoryMonth(expenses: Expense[]) {
   return map
 }
 const monthsBack = (endMk: MonthKey, n: number) => Array.from({ length: n }, (_, i) => shiftMonth(endMk, i - (n - 1)))
+/** The month of the customer's first expense: nothing before it is history. */
+const firstMonth = (expenses: Expense[]) => (expenses.length ? monthKey(expenses.reduce((a, e) => (e.date < a ? e.date : a), expenses[0].date)) : undefined)
 
 /* ---------- Trends, forecast, anomaly ---------- */
 
 /** Each category over the `n` months ending at `endMk`, biggest first. `last` is the last complete month; `change` compares
- *  it, in percent, with the average of the three months before it (null when those were empty). */
+ *  it, in percent, with the average of the three months before it (null when those were empty). `average` is per month
+ *  since the customer's first expense, so two months of history are not spread over twelve. */
 export function categoryTrends(expenses: Expense[], categories: Category[], endMk: MonthKey = currentMonthKey(), n = 12) {
-  const months = monthsBack(endMk, n)
+  const months = monthsBack(endMk, n), first = firstMonth(expenses) ?? endMk
+  const span = Math.max(1, months.filter(mk => mk >= first).length)
   return [...byCategoryMonth(expenses)].map(([id, m]) => {
     const amounts = months.map(mk => r2(m.get(mk) ?? 0))
     const last = r2(m.get(shiftMonth(endMk, -1)) ?? 0), avg3 = r2(mean([2, 3, 4].map(i => m.get(shiftMonth(endMk, -i)) ?? 0)))
-    return { category: categories.find(c => c.id === id) ?? { ...OTHER, id }, months: months.map((month, i) => ({ month, amount: amounts[i] })), sum: total(amounts.map(amount => ({ amount }))), last, avg3, change: avg3 > 0 ? Math.round(((last - avg3) / avg3) * 100) : null }
+    return { category: categories.find(c => c.id === id) ?? { ...OTHER, id }, months: months.map((month, i) => ({ month, amount: amounts[i] })), sum: total(amounts.map(amount => ({ amount }))), average: Math.round(total(amounts.map(amount => ({ amount }))) / span), last, avg3, change: avg3 > 0 ? Math.round(((last - avg3) / avg3) * 100) : null }
   }).filter(t => t.sum > 0).sort((a, b) => b.sum - a.sum)
 }
 
@@ -48,25 +51,27 @@ export function forecastYear(expenses: Expense[], today: ISODate = todayISO()) {
 export const ANOMALY_PCT = 40, ANOMALY_MIN = 50
 /** Categories unusually high this month: the month so far, scaled to the full month, is more than 40 percent and at least
  *  50 above the average of the previous three months. Bills count once and only the rest is scaled; the first week scales
- *  as if seven days had passed, so one early expense is not multiplied by thirty. Months before the first expense do not count. */
+ *  as if seven days had passed, so one early expense is not multiplied by thirty. Months before the first expense do not
+ *  count: `months` says how many the average covers. */
 export function anomalies(expenses: Expense[], categories: Category[], today: ISODate = todayISO()) {
-  if (!expenses.length) return []
+  const first = firstMonth(expenses)
+  if (!first) return []
   const cur = monthKey(today), dim = daysInMonth(cur), elapsed = Math.max(7, Number(today.slice(8)))
-  const first = monthKey(expenses.reduce((a, e) => (e.date < a ? e.date : a), expenses[0].date))
   const prior = [1, 2, 3].map(i => shiftMonth(cur, -i)).filter(mk => mk >= first)
   if (!prior.length) return []
   const bills = byCategoryMonth(expenses.filter(e => e.recurringId))
   return [...byCategoryMonth(expenses)].map(([id, m]) => {
     const soFar = m.get(cur) ?? 0, fixed = bills.get(id)?.get(cur) ?? 0
     const usual = mean(prior.map(mk => m.get(mk) ?? 0)), pace = fixed + ((soFar - fixed) * dim) / elapsed
-    return { category: categories.find(c => c.id === id) ?? { ...OTHER, id }, soFar: r2(soFar), pace: Math.round(pace), usual: Math.round(usual), high: usual > 0 && pace > usual * (1 + ANOMALY_PCT / 100) && pace - usual >= ANOMALY_MIN }
+    return { category: categories.find(c => c.id === id) ?? { ...OTHER, id }, soFar: r2(soFar), pace: Math.round(pace), usual: Math.round(usual), months: prior.length, high: usual > 0 && pace > usual * (1 + ANOMALY_PCT / 100) && pace - usual >= ANOMALY_MIN }
   }).filter(a => a.high).sort((a, b) => b.pace - b.usual - (a.pace - a.usual))
 }
 
 /* ---------- Year over year, heatmap ---------- */
 
 /** A year month by month beside the year before. A month that has not started is null; `diff` needs expenses in that
- *  month of both years. The totals cover only those months, so they compare like with like. */
+ *  month of both years and the month to be over, so a month in progress is not set against a whole one. The totals cover
+ *  only the months that have a `diff`. */
 export function yearCompare(expenses: Expense[], year: string, today: ISODate = todayISO()) {
   const cur = monthKey(today), prevYear = String(Number(year) - 1)
   const sums = new Map<MonthKey, number>()
@@ -74,7 +79,7 @@ export function yearCompare(expenses: Expense[], year: string, today: ISODate = 
   const rows = Array.from({ length: 12 }, (_, i) => {
     const mm = String(i + 1).padStart(2, '0'), mk = `${year}-${mm}`
     const now = mk > cur ? null : r2(sums.get(mk) ?? 0), prev = r2(sums.get(`${prevYear}-${mm}`) ?? 0)
-    return { month: i, now, prev, diff: now !== null && now > 0 && prev > 0 ? r2(now - prev) : null }
+    return { month: i, now, prev, diff: now !== null && mk < cur && now > 0 && prev > 0 ? r2(now - prev) : null }
   })
   const both = rows.filter(r => r.diff !== null)
   const now = total(both.map(r => ({ amount: r.now! }))), prev = total(both.map(r => ({ amount: r.prev })))
@@ -100,10 +105,26 @@ export function netWorth(assets: Holding[], liabilities: Holding[], debts: { bal
   return { assets: a, liabilities: l, net: r2(a - l) }
 }
 
+/** Net worth month by month, oldest first: the stored snapshots, with `month` always taken from the values as they are now. */
+export function netWorthLine(snapshots: NetWorthSnapshot[], now: { assets: number; liabilities: number }, month: MonthKey) {
+  return [...snapshots.filter(s => s.month !== month), { month, assets: now.assets, liabilities: now.liabilities }]
+    .sort((a, b) => a.month.localeCompare(b.month)).map(s => ({ month: s.month, net: r2(s.assets - s.liabilities) }))
+}
+
 /* ---------- Advanced budgeting ---------- */
 
 /** What a budget carries into the next month: what it left unused, never below zero and never more than one month of it. */
 export const rollover = (budget: number, spentLastMonth: number) => Math.min(budget, Math.max(0, r2(budget - spentLastMonth)))
+/** What a category's budget carries into `month`. Nothing in the month rollover was switched on: a budget set today has no last month to carry from.
+ *  ponytail: a budget is one number for every month, so last month is measured against today's budget; keep budgets per month if customers change them often. */
+export const carriedInto = (c: Pick<Category, 'budget' | 'rollover'>, month: MonthKey, spentLastMonth: number) =>
+  (c.budget && c.rollover && c.rollover < month ? rollover(c.budget, spentLastMonth) : 0)
+/** What each category usually costs in a month: its average over the three complete months before `today`. */
+export function usualSpend(expenses: Expense[], today: ISODate = todayISO()) {
+  const cur = monthKey(today), from = shiftMonth(cur, -3), usual = new Map<string, number>()
+  for (const e of expenses) if (monthKey(e.date) >= from && monthKey(e.date) < cur) usual.set(e.categoryId, (usual.get(e.categoryId) ?? 0) + e.amount / 3)
+  return usual
+}
 
 export type Group = 'needs' | 'wants'
 export const groupOf = (c: Pick<Category, 'id' | 'group'>): Group => c.group ?? (ESSENTIALS.includes(c.id) ? 'needs' : 'wants')
@@ -132,12 +153,15 @@ export function fiftyThirtyTwenty(income: number, categories: Pick<Category, 'id
   return { needs, wants, savings: Math.round(income) - needs - wants, budgets }
 }
 
-/** Budgeted against actual for the `n` months ending at `endMk`, for every category that has a budget. */
+/** Budgeted against actual for the `n` months ending at `endMk`, for every category that has a budget. Only the last
+ *  `tracked` months count: the ones since the customer's first expense.
+ *  ponytail: every month is held against the budget as it is set today; see `carriedInto`. */
 export function budgetReport(expenses: Expense[], categories: Category[], endMk: MonthKey = currentMonthKey(), n = 6) {
-  const months = monthsBack(endMk, n), spent = byCategoryMonth(expenses)
+  const months = monthsBack(endMk, n), spent = byCategoryMonth(expenses), first = firstMonth(expenses) ?? endMk
+  const tracked = Math.max(1, months.filter(mk => mk >= first).length)
   const rows = categories.filter(c => c.budget).map(category => {
-    const actual = months.map(mk => r2(spent.get(category.id)?.get(mk) ?? 0))
-    return { category, budget: category.budget!, actual, within: actual.filter(a => a <= category.budget!).length, average: Math.round(mean(actual)) }
+    const actual = months.map(mk => r2(spent.get(category.id)?.get(mk) ?? 0)), counted = actual.slice(-tracked)
+    return { category, budget: category.budget!, actual, within: counted.filter(a => a <= category.budget!).length, average: Math.round(mean(counted)) }
   })
-  return { months, rows }
+  return { months, tracked, rows }
 }

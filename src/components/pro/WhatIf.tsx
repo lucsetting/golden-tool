@@ -5,12 +5,13 @@ import { AnimatedNumber, Button, Card, CardHeader, Empty, Field, Input, Metric, 
 import ChartCard, { LegendKey } from '../charts/ChartCard'
 import Curve from '../charts/Curve'
 import { currentMonthKey, fmt, monthAhead, monthLabel, plural, shiftMonth } from '../../lib/money'
-import { neverPaid, simulate } from '../../lib/debts'
-import { useDebts } from '../debts/shared'
+import { STRATEGY, neverPaid, simulate } from '../../lib/debts'
+import { useDebts, usePlan } from '../debts/shared'
 
 /** Try an extra monthly amount or a one-off payment against the current payoff plan, then make it the plan. */
 export default function WhatIf() {
-  const { now: debts, plan, currency, owedNow } = useDebts()
+  const { now: debts, currency, owedNow } = useDebts()
+  const plan = usePlan()
   const cur = currentMonthKey()
   const [extra, setExtra] = useState(plan.extra ? String(plan.extra) : '')
   const [once, setOnce] = useState('')
@@ -23,8 +24,8 @@ export default function WhatIf() {
   const never = neverPaid(sim)
   const data = useMemo(() => Array.from({ length: Math.max(base.rows.length, sim.rows.length) + 1 }, (_, i) => ({
     x: i, label: i ? monthAhead(i) : 'Today',
-    a: i ? sim.rows[i - 1]?.balance ?? (i > sim.rows.length ? 0 : null) : owedNow,
-    b: i ? base.rows[i - 1]?.balance ?? (i > base.rows.length ? 0 : null) : owedNow,
+    value: i ? sim.rows[i - 1]?.balance ?? 0 : owedNow,
+    compare: i ? base.rows[i - 1]?.balance ?? 0 : owedNow,
   })), [base, sim, owedNow])
   const apply = () => {
     const before = plan
@@ -38,7 +39,7 @@ export default function WhatIf() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Try a change" right={<span className="text-xs text-muted-foreground">{plan.method === 'avalanche' ? 'Avalanche' : 'Snowball'}</span>} />
+        <CardHeader title="Try a change" right={<span className="text-xs text-muted-foreground">{STRATEGY[plan.method]}</span>} />
         <div className="p-4 sm:p-5 grid gap-4 sm:grid-cols-3">
           <Field label="Extra per month"><Input type="number" inputMode="decimal" min="0" placeholder="0" value={extra} onChange={e => setExtra(e.target.value)} /></Field>
           <Field label="One-off payment"><Input type="number" inputMode="decimal" min="0" placeholder="0" value={once} onChange={e => setOnce(e.target.value)} /></Field>

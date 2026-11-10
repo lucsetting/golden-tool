@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../../store'
 import { Button, Dialog, Field, Input, Select } from '../ui'
 import { expensesForMonth, monthStats, safeToSave } from '../../lib/calc'
-import { withSaved } from '../../lib/goals'
-import { currentMonthKey, monthKey, todayISO } from '../../lib/money'
+import { setAside, withSaved } from '../../lib/goals'
+import { currentMonthKey, todayISO } from '../../lib/money'
 import { deleteWithUndo } from '../../lib/undo'
 import type { Contribution } from '../../types'
 
@@ -25,12 +25,12 @@ export function useSafeToSave() {
   const limit = useStore(s => s.settings.monthlyLimit)
   const recurring = useStore(s => s.recurring)
   const contributions = useStore(s => s.contributions)
+  const goals = useStore(s => s.goals)
   return useMemo(() => {
     const mk = currentMonthKey()
-    const safe = safeToSave(monthStats(expensesForMonth(expenses, mk), mk, limit, recurring))
-    const setAside = Math.round(contributions.filter(c => monthKey(c.date) === mk && c.source !== 'opening').reduce((s, c) => s + c.amount, 0) * 100) / 100
-    return { safe, setAside, left: Math.max(0, safe - setAside), limit }
-  }, [expenses, limit, recurring, contributions])
+    const safe = safeToSave(monthStats(expensesForMonth(expenses, mk), mk, limit, recurring)), aside = setAside(contributions, goals)
+    return { safe, setAside: aside, left: Math.max(0, safe - aside), limit }
+  }, [expenses, limit, recurring, contributions, goals])
 }
 
 /** Add a contribution to a goal, or edit one. `goalId` preselects the goal when adding. */

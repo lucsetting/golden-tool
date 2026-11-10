@@ -13,7 +13,7 @@ export default function BudgetReport() {
   const expenses = useStore(s => s.expenses)
   const categories = useStore(s => s.categories)
   const currency = useStore(s => s.settings.currency)
-  const { months, rows } = useMemo(() => budgetReport(expenses, categories), [expenses, categories])
+  const { months, tracked, rows } = useMemo(() => budgetReport(expenses, categories), [expenses, categories])
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
 
   if (rows.length === 0) {
@@ -36,6 +36,8 @@ export default function BudgetReport() {
             <div className="flex-1 grid grid-cols-6 gap-2 max-sm:mt-4">
               {r.actual.map((a, i) => {
                 const state = budgetState(a, r.budget)
+                // A month before the customer's first expense has nothing to hold against the budget.
+                if (i < months.length - tracked) return <div key={months[i]} className="min-w-0 text-center"><div className="h-12" /><div className="mt-1.5 text-xs text-muted-foreground">—</div><div className="text-[11px] text-muted-foreground">{monthLabel(months[i], 'short').slice(0, 3)}</div></div>
                 return (
                   <div key={months[i]} className="min-w-0 text-center" title={`${monthLabel(months[i])}: ${f0(a)} of ${f0(r.budget)}`}>
                     <div className="relative h-12 flex items-end justify-center">
@@ -48,7 +50,7 @@ export default function BudgetReport() {
                 )
               })}
             </div>
-            <div className="sm:w-28 sm:shrink-0 sm:text-right text-xs text-muted-foreground max-sm:mt-3 tabular-nums"><span className="text-foreground sm:block sm:text-sm">{r.within} of {months.length}</span> months within budget</div>
+            <div className="sm:w-28 sm:shrink-0 sm:text-right text-xs text-muted-foreground max-sm:mt-3 tabular-nums"><span className="text-foreground sm:block sm:text-sm">{r.within} of {tracked}</span> {tracked === 1 ? 'month' : 'months'} within budget</div>
           </div>
         )
       })}
