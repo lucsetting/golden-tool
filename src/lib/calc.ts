@@ -106,68 +106,10 @@ export function monthlyHistory(expenses: Expense[], n = 6, endMk = currentMonthK
   })
 }
 
-/** A plan that is not paid off after this many months never will be: the payments do not cover the interest. */
-export const MAX_MONTHS = 600
-/** Debt payoff schedule (snowball = smallest balance first, avalanche = highest APR first). */
-export interface DebtLike { id: string; name: string; balance: number; apr: number; minPayment: number }
-export function payoffPlan(debts: DebtLike[], extraPerMonth: number, method: 'snowball' | 'avalanche') {
-  const order = [...debts].sort((a, b) => method === 'snowball' ? a.balance - b.balance : b.apr - a.apr)
-  const bal = new Map(order.map(d => [d.id, d.balance]))
-  let months = 0, interestPaid = 0
-  const payoffMonth = new Map<string, number>()
-  while ([...bal.values()].some(b => b > 0.005) && months < MAX_MONTHS) {
-    months++
-    let extra = extraPerMonth
-    for (const d of order) {
-      const b = bal.get(d.id)!
-      if (b <= 0) continue
-      const interest = (b * (d.apr / 100)) / 12
-      interestPaid += interest
-      bal.set(d.id, b + interest)
-    }
-    for (const d of order) {
-      const b = bal.get(d.id)!
-      if (b <= 0) continue
-      const pay = Math.min(b, d.minPayment + extra)
-      extra = Math.max(0, extra - Math.max(0, pay - d.minPayment)) // only the first open debt absorbs extra
-      const nb = b - pay
-      bal.set(d.id, nb)
-      if (nb <= 0.005) { payoffMonth.set(d.id, months); extra += d.minPayment } // roll freed payment forward
-    }
-  }
-  return { months, interestPaid: Math.round(interestPaid * 100) / 100, payoffMonth }
-}
-
-/** Month-by-month payments, same rules as payoffPlan. Row i = i-th month from now; pays[id] = amount paid that month (absent once paid off). */
-export interface ScheduleRow { month: number; pays: Record<string, number>; total: number; paidOff: string[] }
-export function paymentSchedule(debts: DebtLike[], extraPerMonth: number, method: 'snowball' | 'avalanche'): ScheduleRow[] {
-  const order = [...debts].sort((a, b) => method === 'snowball' ? a.balance - b.balance : b.apr - a.apr)
-  const bal = new Map(order.map(d => [d.id, d.balance]))
-  const rows: ScheduleRow[] = []
-  while ([...bal.values()].some(b => b > 0.005) && rows.length < MAX_MONTHS) {
-    let extra = extraPerMonth
-    const pays: Record<string, number> = {}, paidOff: string[] = []
-    for (const d of order) {
-      const b = bal.get(d.id)!
-      if (b > 0) bal.set(d.id, b + (b * (d.apr / 100)) / 12)
-    }
-    for (const d of order) {
-      const b = bal.get(d.id)!
-      if (b <= 0) continue
-      const pay = Math.min(b, d.minPayment + extra)
-      extra = Math.max(0, extra - Math.max(0, pay - d.minPayment))
-      const nb = b - pay
-      bal.set(d.id, nb)
-      pays[d.id] = Math.round(pay * 100) / 100
-      if (nb <= 0.005) { bal.set(d.id, 0); paidOff.push(d.id); extra += d.minPayment }
-    }
-    rows.push({ month: rows.length + 1, pays, total: Math.round(Object.values(pays).reduce((s, n) => s + n, 0) * 100) / 100, paidOff })
-  }
-  return rows
-}
-
+/** The categories that count as essential until the customer says otherwise: the emergency fund, the 50/30/20 needs, a no-spend week. */
+export const ESSENTIALS = ['housing', 'bills', 'groceries', 'transport', 'health']
 /** Average monthly spend on essential categories over the last `months` full months that have any expense (current month if none). */
-export function essentialsPerMonth(expenses: Expense[], categoryIds: string[] = ['housing', 'bills', 'groceries', 'transport', 'health'], months = 3): number {
+export function essentialsPerMonth(expenses: Expense[], categoryIds: string[] = ESSENTIALS, months = 3): number {
   const cur = currentMonthKey()
   const ess = (mk: string) => total(expensesForMonth(expenses, mk).filter(e => categoryIds.includes(e.categoryId)))
   const mks = Array.from({ length: months }, (_, i) => shiftMonth(cur, -(i + 1))).filter(mk => expenses.some(e => monthKey(e.date) === mk))

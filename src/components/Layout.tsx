@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowsRightLeftIcon, AdjustmentsHorizontalIcon, FunnelIcon } from '@heroicons/react/16/solid'
+import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowsRightLeftIcon, AdjustmentsHorizontalIcon, FunnelIcon, CalculatorIcon, CheckCircleIcon, QueueListIcon, TrophyIcon, ArrowTrendingUpIcon, ScaleIcon, ChartBarSquareIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { SECTION_TABS, sectionOf, useUI, type Section, type Tab } from '../ui-state'
 import { expensesForMonth, total } from '../lib/calc'
@@ -22,9 +22,9 @@ const RAIL: { section: Section; label: string; Icon: IconCmp; tab: Tab }[] = [
 ]
 const TAB_ICON: Partial<Record<Tab, IconCmp>> = {
   home: HomeIcon, activity: ListBulletIcon, cashflow: ArrowsRightLeftIcon, bills: ArrowPathIcon, budgets: AdjustmentsHorizontalIcon, insights: ChartBarIcon, refund: ArrowUturnLeftIcon,
-  debts: CreditCardIcon, 'debts-schedule': CalendarDaysIcon,
-  goals: FlagIcon, 'goals-emergency': ShieldCheckIcon,
-  reports: TableCellsIcon, 'reports-export': ArrowDownTrayIcon,
+  debts: CreditCardIcon, 'debts-whatif': CalculatorIcon, 'debts-payments': CheckCircleIcon, 'debts-schedule': CalendarDaysIcon,
+  goals: FlagIcon, 'goals-plan': QueueListIcon, 'goals-challenges': TrophyIcon, 'goals-emergency': ShieldCheckIcon,
+  reports: ArrowTrendingUpIcon, 'reports-networth': ScaleIcon, 'reports-yearly': TableCellsIcon, 'reports-budget': ChartBarSquareIcon, 'reports-export': ArrowDownTrayIcon,
   settings: UserIcon, 'settings-categories': TagIcon, 'settings-rules': FunnelIcon, 'settings-data': CircleStackIcon, 'settings-billing': BanknotesIcon, 'settings-refund': ArrowUturnLeftIcon,
 }
 const SECTION_TITLE: Record<Section, string> = { dashboard: 'Golden Tool', debts: MODULES.debts.name, goals: MODULES.goals.name, reports: MODULES.reports.name, settings: 'Settings', more: 'More' }

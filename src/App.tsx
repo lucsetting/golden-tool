@@ -27,9 +27,9 @@ import { hasAccounts } from './lib/supabase'
 
 const PAGES: Record<Tab, React.ComponentType> = {
   home: Dashboard, activity: Activity, cashflow: CashFlow, bills: Bills, budgets: Budgets, insights: Insights, refund: Refund,
-  debts: Debts, 'debts-schedule': Debts,
-  goals: Goals, 'goals-emergency': Goals,
-  reports: Reports, 'reports-export': Reports,
+  debts: Debts, 'debts-whatif': Debts, 'debts-payments': Debts, 'debts-schedule': Debts,
+  goals: Goals, 'goals-plan': Goals, 'goals-challenges': Goals, 'goals-emergency': Goals,
+  reports: Reports, 'reports-networth': Reports, 'reports-yearly': Reports, 'reports-budget': Reports, 'reports-export': Reports,
   settings: Settings, 'settings-categories': Settings, 'settings-rules': Settings, 'settings-data': Settings, 'settings-billing': Settings, 'settings-refund': Settings,
   more: More,
 }

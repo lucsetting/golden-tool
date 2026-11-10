@@ -5,39 +5,48 @@ export type ModuleKind = 'debts' | 'goals' | 'reports'
 export interface ModuleDef {
   kind: ModuleKind
   name: string
-  short: string
-  benefits: { title: string; text: string }[]
+  /** what the add-on is for, in a few words */
+  about: string
+  /** what it contains, as plain facts: shown on the card of a locked section */
+  includes: string[]
   checkoutUrl: string // Digistore24 order form of this upsell (placeholder until launch)
   price: string
 }
 
 export const MODULES: Record<ModuleKind, ModuleDef> = {
   debts: {
-    kind: 'debts', name: 'Golden Freedom', short: 'Debts', price: '$47',
-    benefits: [
-      { title: 'Your debt-free date', text: 'Every card and loan in one plan, with the month it hits zero.' },
-      { title: 'Snowball or avalanche', text: 'Pick the method that fits you and see the difference in dollars.' },
-      { title: 'Interest you avoid', text: 'Add any extra amount per month and watch the interest drop.' },
-      { title: 'Month-by-month schedule', text: 'A payment calendar you can follow without a spreadsheet.' },
+    kind: 'debts', name: 'Golden Freedom', about: 'Payoff plan, what-if and payments', price: '$47',
+    includes: [
+      'One payoff plan for all your debts, with the month each one reaches zero and a chart of the balance going down',
+      'Snowball and avalanche side by side, with the date and the total interest of each',
+      'What-if: try an extra amount per month or a one-off payment, then make it the plan',
+      'A payment log that lowers each balance and shows whether you are ahead of or behind the plan',
+      'What paying only the minimum costs for each debt, in months and in interest',
+      'What the plan pays each month, listed until the last one',
     ],
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-DEBTS',
   },
   goals: {
-    kind: 'goals', name: 'Golden Goals', short: 'Goals', price: '$37',
-    benefits: [
-      { title: 'Goals with a deadline', text: 'Vacation, car, cushion: each one tells you what to set aside monthly.' },
-      { title: 'Emergency fund target', text: 'Calculated from your real essential spending, not a generic rule.' },
-      { title: 'Safe to save', text: 'How much you can move to savings this month without going over your limit.' },
-      { title: 'Progress you can feel', text: 'Add money in one tap and watch the bar move.' },
+    kind: 'goals', name: 'Golden Goals', about: 'Goals, automatic plan and challenges', price: '$37',
+    includes: [
+      'Goals with a target, an optional deadline and the amount to set aside per month',
+      'A history of contributions for each goal, with a chart of what is saved against the pace for the deadline',
+      'Milestones at 25, 50, 75 and 100 percent, with the date reached or expected',
+      'An automatic plan that splits what you can save this month over your goals, in your order of priority',
+      'Savings challenges: the 52-week challenge and the no-spend week',
+      'An emergency fund target from your own essential expenses, for 3 or 6 months',
     ],
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-GOALS',
   },
   reports: {
-    kind: 'reports', name: 'Golden Vision', short: 'Reports', price: '$27',
-    benefits: [
-      { title: 'Yearly report', text: 'Twelve months side by side, with the total and the monthly average.' },
-      { title: 'CSV export', text: 'Every expense and income, ready for Excel, Google Sheets or your accountant.' },
-      { title: 'Monthly summary', text: 'What changed versus last month, in plain English.' },
+    kind: 'reports', name: 'Golden Vision', about: 'Trends, net worth and yearly report', price: '$27',
+    includes: [
+      'Trends: twelve months of every category, and a notice when one is far above its usual level',
+      'A forecast of where the year ends at your current pace',
+      'Net worth: assets and liabilities month by month, with your debts counted for you',
+      'Yearly report with the year before beside it and a heatmap of every day',
+      'Advanced budgeting: rollover, a 50/30/20 preset and a budgeted against actual report',
+      'CSV export of every expense and income, with tags, and a monthly summary as text',
     ],
     checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-REPORTS',
   },

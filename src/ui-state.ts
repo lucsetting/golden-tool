@@ -4,9 +4,9 @@ import type { ModuleKind } from './lib/modules'
 
 export type Tab =
   | 'home' | 'activity' | 'cashflow' | 'bills' | 'budgets' | 'insights' | 'refund'
-  | 'debts' | 'debts-schedule'
-  | 'goals' | 'goals-emergency'
-  | 'reports' | 'reports-export'
+  | 'debts' | 'debts-whatif' | 'debts-payments' | 'debts-schedule'
+  | 'goals' | 'goals-plan' | 'goals-challenges' | 'goals-emergency'
+  | 'reports' | 'reports-networth' | 'reports-yearly' | 'reports-budget' | 'reports-export'
   | 'settings' | 'settings-categories' | 'settings-rules' | 'settings-data' | 'settings-billing' | 'settings-refund'
   | 'more'
 
@@ -21,9 +21,9 @@ export function sectionOf(tab: Tab): Section {
 }
 export const SECTION_TABS: Record<Section, { tab: Tab; label: string }[]> = {
   dashboard: [{ tab: 'home', label: 'Home' }, { tab: 'activity', label: 'Activity' }, { tab: 'cashflow', label: 'Cash flow' }, { tab: 'bills', label: 'Bills' }, { tab: 'budgets', label: 'Budgets' }, { tab: 'insights', label: 'Insights' }, { tab: 'refund', label: 'Refund' }],
-  debts: [{ tab: 'debts', label: 'Payoff plan' }, { tab: 'debts-schedule', label: 'Month by month' }],
-  goals: [{ tab: 'goals', label: 'Goals' }, { tab: 'goals-emergency', label: 'Emergency fund' }],
-  reports: [{ tab: 'reports', label: 'Yearly report' }, { tab: 'reports-export', label: 'Export' }],
+  debts: [{ tab: 'debts', label: 'Payoff plan' }, { tab: 'debts-whatif', label: 'What-if' }, { tab: 'debts-payments', label: 'Payments' }, { tab: 'debts-schedule', label: 'Month by month' }],
+  goals: [{ tab: 'goals', label: 'Goals' }, { tab: 'goals-plan', label: 'Plan' }, { tab: 'goals-challenges', label: 'Challenges' }, { tab: 'goals-emergency', label: 'Emergency fund' }],
+  reports: [{ tab: 'reports', label: 'Trends' }, { tab: 'reports-networth', label: 'Net worth' }, { tab: 'reports-yearly', label: 'Yearly' }, { tab: 'reports-budget', label: 'Budget report' }, { tab: 'reports-export', label: 'Export' }],
   settings: [{ tab: 'settings', label: 'General' }, { tab: 'settings-categories', label: 'Categories' }, { tab: 'settings-rules', label: 'Rules' }, { tab: 'settings-data', label: 'Data' }, { tab: 'settings-billing', label: 'Billing' }, { tab: 'settings-refund', label: 'Refund' }],
   more: [],
 }

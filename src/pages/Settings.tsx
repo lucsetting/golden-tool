@@ -305,7 +305,7 @@ function Billing() {
           return (
             <TableRow key={m.kind}>
               <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="flex-1 min-w-0 truncate text-foreground">{m.name}</span>
+              <span className="flex-1 min-w-0"><span className="block truncate text-foreground">{m.name}</span><span className="block truncate text-xs text-muted-foreground mt-0.5">{m.about}</span></span>
               <span className="text-muted-foreground">{on ? 'Included' : m.price}</span>
               {on ? <Chip tone="outline">Active</Chip> : <Button onClick={() => window.open(m.checkoutUrl, '_blank', 'noopener')}>Add</Button>}
             </TableRow>

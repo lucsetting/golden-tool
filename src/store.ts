@@ -1,8 +1,10 @@
 import { create, type StateCreator, type StoreMutatorIdentifier } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Category, Debt, Expense, Goal, Income, Recurring, Settings } from './types'
-import { todayISO, uid } from './lib/money'
+import type { Category, Challenge, Contribution, Debt, DebtPlan, Expense, Goal, Holding, Income, NetWorthSnapshot, Payment, Recurring, Settings } from './types'
+import { monthKey, round2, todayISO, uid } from './lib/money'
 import { normName, postings } from './lib/calc'
+import { debtsNow } from './lib/debts'
+import { netWorth } from './lib/vision'
 import { normalizeKey, parseKey, type KeyKind } from './lib/license'
 import { isReadOnly } from './lib/access'
 import { useUI } from './ui-state'
@@ -38,8 +40,20 @@ export interface Data {
   incomes: Income[]
   /** category rules: normalised merchant name -> category id */
   rules: Record<string, string>
+  /** what the customer actually paid toward each debt, and balance corrections */
+  payments: Payment[]
+  /** the payoff plan's settings */
+  plan: DebtPlan
+  contributions: Contribution[]
+  challenges: Challenge[]
+  assets: Holding[]
+  liabilities: Holding[]
+  /** net worth, one snapshot per month in which a value changed */
+  netWorth: NetWorthSnapshot[]
 }
-export const DATA_KEYS = ['settings', 'categories', 'expenses', 'recurring', 'goals', 'debts', 'recurringApplied', 'incomes', 'rules'] as const satisfies readonly (keyof Data)[]
+export const DATA_KEYS = ['settings', 'categories', 'expenses', 'recurring', 'goals', 'debts', 'recurringApplied', 'incomes', 'rules', 'payments', 'plan', 'contributions', 'challenges', 'assets', 'liabilities', 'netWorth'] as const satisfies readonly (keyof Data)[]
+/** The lists whose items carry an id and are added and edited the same way. */
+export type ListKey = 'goals' | 'debts' | 'payments' | 'contributions' | 'challenges' | 'assets' | 'liabilities'
 export const pickData = (s: Data): Data => Object.fromEntries(DATA_KEYS.map(k => [k, s[k]])) as unknown as Data
 
 export interface State extends Data {
@@ -66,10 +80,11 @@ export interface State extends Data {
   /** Posts the bills and repeating income that have come due. Safe to call any number of times. */
   applyRecurring: () => void
   // add-ons
-  addGoal: (g: Omit<Goal, 'id'>) => Goal
-  updateGoal: (id: string, patch: Partial<Omit<Goal, 'id'>>) => void
-  addDebt: (d: Omit<Debt, 'id'>) => Debt
-  updateDebt: (id: string, patch: Partial<Omit<Debt, 'id'>>) => void
+  addTo: <K extends ListKey>(key: K, item: Omit<Data[K][number], 'id'>) => Data[K][number]
+  patchIn: <K extends ListKey>(key: K, id: string, patch: Partial<Omit<Data[K][number], 'id'>>) => void
+  setPlan: (patch: Partial<DebtPlan>) => void
+  /** Moves a goal one place up (-1) or down (1) in the priority order. */
+  moveGoal: (id: string, by: -1 | 1) => void
   // data
   exportJSON: () => string
   importJSON: (json: string) => boolean
@@ -77,20 +92,45 @@ export interface State extends Data {
 }
 
 const initialSettings: Settings = { currency: 'USD', monthlyLimit: 0, onboarded: false, theme: 'light', monthStartDay: 1, keys: [] }
-const initialData = (): Data => ({ settings: initialSettings, categories: DEFAULT_CATEGORIES, expenses: [], recurring: [], goals: [], debts: [], recurringApplied: [], incomes: [], rules: {} })
+const initialPlan: DebtPlan = { method: 'avalanche', extra: 0 }
+const initialData = (): Data => ({
+  settings: initialSettings, categories: DEFAULT_CATEGORIES, expenses: [], recurring: [], goals: [], debts: [], recurringApplied: [], incomes: [], rules: {},
+  payments: [], plan: initialPlan, contributions: [], challenges: [], assets: [], liabilities: [], netWorth: [],
+})
+/** Before version 4 the strategy and the extra amount lived in this browser only. */
+function legacyPlan(): DebtPlan {
+  try {
+    const p = JSON.parse(localStorage.getItem('golden-tool:debt-prefs') ?? '{}').state
+    return { method: p.method === 'snowball' ? 'snowball' : 'avalanche', extra: Number(p.extra) > 0 ? Number(p.extra) : 0 }
+  } catch { return initialPlan }
+}
 
 /** Brings stored, synced or imported state to the current shape: every list present, defaults under the settings,
- *  and nothing it carries removed (fields written by a newer version stay). Running it twice changes nothing. */
+ *  and nothing it carries removed (fields written by a newer version stay). Running it twice changes nothing.
+ *  Version 4: a debt gets the day its balance was true, and a goal's `saved` number becomes contributions: whatever
+ *  of it the contributions do not already explain, so the copy of a device still on version 3 cannot count twice.
+ *  ponytail: a `saved` below the contributions is taken for such an old copy and adds nothing; money that device
+ *  took out of a goal the old way is not followed. */
 export function migrate(raw: unknown): Data {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>
   const list = <T,>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : [])
+  const today = todayISO()
+  const contributions = [...list(r.contributions)]
+  const goals = list(r.goals as (Goal & { saved?: number })[]).map(({ saved, ...g }) => {
+    const missing = round2((Number(saved) || 0) - contributions.filter(c => c.goalId === g.id).reduce((s, c) => s + c.amount, 0))
+    if (missing > 0) contributions.push({ id: uid(), goalId: g.id, amount: missing, date: today, source: 'opening' })
+    return g
+  })
   return {
     ...r,
     settings: { ...initialSettings, ...r.settings, keys: list(r.settings?.keys) },
     categories: list(r.categories).length ? r.categories! : DEFAULT_CATEGORIES,
-    expenses: list(r.expenses), recurring: list(r.recurring), goals: list(r.goals), debts: list(r.debts),
+    expenses: list(r.expenses), recurring: list(r.recurring), goals, contributions,
+    debts: list(r.debts).map(d => (d.startDate ? d : { ...d, startDate: today })),
     recurringApplied: list(r.recurringApplied), incomes: list(r.incomes),
     rules: r.rules && typeof r.rules === 'object' ? r.rules : {},
+    payments: list(r.payments), plan: { ...(r.plan ?? legacyPlan()) }, challenges: list(r.challenges),
+    assets: list(r.assets), liabilities: list(r.liabilities), netWorth: list(r.netWorth),
   }
 }
 
@@ -186,12 +226,21 @@ export const useStore = create<State>()(
         }))
       },
 
-      addGoal: g => { const goal: Goal = { ...g, id: uid() }; set(s => ({ goals: [...s.goals, goal] })); return goal },
-      updateGoal: (id, patch) => set(s => ({ goals: s.goals.map(g => (g.id === id ? { ...g, ...patch } : g)) })),
-      addDebt: d => { const debt: Debt = { ...d, id: uid() }; set(s => ({ debts: [...s.debts, debt] })); return debt },
-      updateDebt: (id, patch) => set(s => ({ debts: s.debts.map(d => (d.id === id ? { ...d, ...patch } : d)) })),
+      addTo: (key, item) => {
+        const added = { ...item, id: uid() } as Data[typeof key][number]
+        set(s => ({ [key]: [...s[key], added] }))
+        return added
+      },
+      patchIn: (key, id, patch) => set(s => ({ [key]: (s[key] as { id: string }[]).map(x => (x.id === id ? { ...x, ...patch } : x)) })),
+      setPlan: patch => set(s => ({ plan: { ...s.plan, ...patch, start: todayISO() } })),
+      moveGoal: (id, by) => set(s => {
+        const i = s.goals.findIndex(g => g.id === id), j = i + by, goals = [...s.goals]
+        if (i < 0 || j < 0 || j >= goals.length) return {}
+        ;[goals[i], goals[j]] = [goals[j], goals[i]]
+        return { goals }
+      }),
 
-      exportJSON: () => JSON.stringify({ app: 'golden-tool', version: 2, exportedAt: new Date().toISOString(), ...pickData(get()) }, null, 2),
+      exportJSON: () => JSON.stringify({ app: 'golden-tool', version: 4, exportedAt: new Date().toISOString(), ...pickData(get()) }, null, 2),
       importJSON: json => {
         try {
           const d = JSON.parse(json)
@@ -205,15 +254,25 @@ export const useStore = create<State>()(
     }),
     {
       name: 'golden-tool',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const st = persisted as Partial<Data>
         if (version < 2 && st.settings) {
           // v1 (pre-launch) had a single proKey with another checksum; no customers existed, so it is simply dropped.
           st.settings = { ...initialSettings, ...st.settings, keys: st.settings.keys ?? [], firstOpenedAt: st.settings.firstOpenedAt ?? Date.now() }
         }
-        return migrate(st) as State // v3: income and category rules arrive as empty lists; bills keep their list
+        return migrate(st) as State // v3 and v4: new lists arrive empty; see `migrate` for what happens to goals and debts
       },
     },
   )),
 )
+
+// Net worth keeps one snapshot per month, rewritten whenever a value behind it changes.
+useStore.subscribe((s, prev) => {
+  if (s.assets === prev.assets && s.liabilities === prev.liabilities && s.debts === prev.debts && s.payments === prev.payments) return
+  if (isReadOnly(s.settings) || (!s.assets.length && !s.liabilities.length && !s.debts.length && !s.netWorth.length)) return
+  const month = monthKey(todayISO()), now = netWorth(s.assets, s.liabilities, debtsNow(s.debts, s.payments))
+  const old = s.netWorth.find(n => n.month === month)
+  if (old?.assets === now.assets && old.liabilities === now.liabilities) return
+  useStore.setState({ netWorth: [...s.netWorth.filter(n => n.month !== month), { month, assets: now.assets, liabilities: now.liabilities }] })
+})

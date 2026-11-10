@@ -1,30 +1,13 @@
 import type { ReactNode } from 'react'
 import { ArrowTopRightOnSquareIcon, CheckIcon } from '@heroicons/react/16/solid'
 import type { ModuleDef, ModuleKind } from '../lib/modules'
-import { Button, Card, Chip } from './ui'
+import { Button, Card, Chip, PageHeader } from './ui'
+import { useStore } from '../store'
+import { useUI, type Tab } from '../ui-state'
+import { hasModule } from '../lib/access'
+import { MODULES } from '../lib/modules'
 import { MODULE_ICON } from './Layout'
 import CodeInput from './CodeInput'
-
-/** What each add-on contains, as plain facts. */
-const INCLUDES: Record<ModuleKind, string[]> = {
-  debts: [
-    'One payoff plan for all your debts, with the month each one reaches zero',
-    'Snowball and avalanche strategies, with the total interest of each',
-    'An extra amount per month, with the interest it saves',
-    'What the plan pays each month, listed until the last one',
-  ],
-  goals: [
-    'Goals with a target, an optional deadline and the amount to set aside per month',
-    'Safe to save: what is left under your monthly limit this month',
-    'An emergency fund target from your own essential expenses, for 3 or 6 months',
-    'Progress on each goal as you add contributions',
-  ],
-  reports: [
-    'Yearly report: twelve months, total, monthly average and categories',
-    'CSV export of every expense and income, with tags',
-    'A monthly summary as text you can copy',
-  ],
-}
 
 /** Locked add-on: its card on top, then the real screens below, inert and dimmed. No sample data, no blur. */
 export default function Locked({ module, children }: { module: ModuleDef; children: ReactNode }) {
@@ -42,7 +25,7 @@ export default function Locked({ module, children }: { module: ModuleDef; childr
             <Button variant="primary" className="max-sm:w-full" onClick={() => window.open(module.checkoutUrl, '_blank', 'noopener')}><span>Get {module.name}</span><ArrowTopRightOnSquareIcon /></Button>
           </div>
           <ul className="mt-4 grid gap-x-8 gap-y-2 sm:grid-cols-2 text-sm text-muted-foreground leading-5">
-            {INCLUDES[module.kind].map(t => <li key={t} className="flex gap-2"><CheckIcon className="h-4 w-4 mt-0.5 shrink-0" />{t}</li>)}
+            {module.includes.map(t => <li key={t} className="flex gap-2"><CheckIcon className="h-4 w-4 mt-0.5 shrink-0" />{t}</li>)}
           </ul>
         </div>
         <div className="border-t border-border p-4 sm:p-5">
@@ -50,6 +33,20 @@ export default function Locked({ module, children }: { module: ModuleDef; childr
         </div>
       </Card>
       <div inert aria-hidden className="opacity-50 select-none">{children}</div>
+    </>
+  )
+}
+
+export type Screens = Partial<Record<Tab, [title: string, subtitle: string, Body: React.ComponentType]>>
+/** A page of an add-on section: the header of the screen in view, then the screen, behind the add-on's card while it is locked. */
+export function AddonPage({ kind, screens }: { kind: ModuleKind; screens: Screens }) {
+  const tab = useUI(s => s.tab)
+  const unlocked = useStore(s => hasModule(s.settings, kind))
+  const [title, subtitle, Body] = screens[tab] ?? screens[kind]!
+  return (
+    <>
+      <PageHeader title={title} subtitle={subtitle} />
+      {unlocked ? <Body /> : <Locked module={MODULES[kind]}><Body /></Locked>}
     </>
   )
 }

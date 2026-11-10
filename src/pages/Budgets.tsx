@@ -5,8 +5,11 @@ import { AnimatedNumber, Card, CardHeader, CategoryBadge, Chip, Input, Metric, M
 import MonthPicker from '../components/MonthPicker'
 import { budgetState, byCategory, expensesForMonth } from '../lib/calc'
 import { fmt, monthLabel } from '../lib/money'
+import AdvancedBudgeting from '../components/pro/AdvancedBudgeting'
+import { useCarried } from '../components/pro/carry'
 
-/** One budget per category: the totals, how they compare with the monthly limit, then a row per category with its amount field. */
+/** One budget per category: the totals, how they compare with the monthly limit, then a row per category with its amount field.
+ *  With Golden Vision a budget set to roll over also has what it left unused last month. */
 export default function Budgets() {
   const categories = useStore(s => s.categories)
   const expenses = useStore(s => s.expenses)
@@ -14,9 +17,10 @@ export default function Budgets() {
   const limit = useStore(s => s.settings.monthlyLimit)
   const month = useUI(s => s.month)
   const spent = useMemo(() => new Map(byCategory(expensesForMonth(expenses, month), categories).map(s => [s.category.id, s.amount])), [expenses, month, categories])
+  const carried = useCarried(month)
   const budgeted = categories.filter(c => c.budget)
   const sum = budgeted.reduce((s, c) => s + c.budget!, 0)
-  const states = budgeted.map(c => budgetState(spent.get(c.id) ?? 0, c.budget))
+  const states = budgeted.map(c => budgetState(spent.get(c.id) ?? 0, c.budget! + carried(c)))
   const over = states.filter(s => s === 'over').length, near = states.filter(s => s === 'warn').length
   const f = (n: number) => fmt(n, currency)
   const f0 = (n: number) => fmt(n, currency, { maximumFractionDigits: 0 })
@@ -57,7 +61,7 @@ export default function Budgets() {
           <span className="w-28 text-right">Budget per month</span>
         </TableHead>
         {rows.map(c => {
-          const s = spent.get(c.id) ?? 0, budget = c.budget ?? 0, state = budgetState(s, budget)
+          const s = spent.get(c.id) ?? 0, extra = carried(c), budget = (c.budget ?? 0) + extra, state = budgetState(s, budget)
           const bar = budget ? <ProgressBar value={(s / budget) * 100} tone={state === 'over' ? 'bad' : state === 'warn' ? 'warn' : undefined} /> : null
           const left = (fm: typeof f) => s > budget ? `${fm(s - budget)} over` : `${fm(budget - s)} left`
           const tone = state === 'over' ? 'text-destructive' : state === 'warn' ? 'text-warn' : 'text-muted-foreground'
@@ -65,7 +69,7 @@ export default function Budgets() {
             <TableRow key={c.id} className="tabular-nums">
               <CategoryBadge category={c} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2"><span className="truncate text-foreground">{c.name}</span>{c.hidden && <Chip>Hidden</Chip>}</div>
+                <div className="flex items-center gap-2"><span className="truncate text-foreground">{c.name}</span>{c.hidden && <Chip>Hidden</Chip>}{extra > 0 && <Chip className="max-xl:hidden">+{f0(extra)} rollover</Chip>}</div>
                 <div className="xl:hidden mt-1 text-xs text-muted-foreground truncate">
                   {budget ? <>{f0(s)} of {f0(budget)} · <span className={tone}>{left(f0)}</span></> : `${f0(s)} spent`}
                 </div>
@@ -81,6 +85,7 @@ export default function Budgets() {
           )
         })}
       </Card>
+      <AdvancedBudgeting month={month} />
     </div>
   )
 }
