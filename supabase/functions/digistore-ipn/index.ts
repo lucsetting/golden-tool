@@ -9,8 +9,8 @@
 // ponytail: nested/array params (key[sub]) are signed under their literal key; Digistore24 does not send them for these events.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-type Kind = 'all' | 'debts' | 'goals' | 'reports' | 'lifetime'
-const KINDS: readonly string[] = ['all', 'debts', 'goals', 'reports', 'lifetime']
+type Kind = 'all' | 'debts' | 'goals' | 'reports'
+const KINDS: readonly string[] = ['all', 'debts', 'goals', 'reports']
 
 const OK = () => new Response('OK', { status: 200, headers: { 'content-type': 'text/plain' } })
 const fail = (status: number, msg: string) => new Response(msg, { status, headers: { 'content-type': 'text/plain' } })

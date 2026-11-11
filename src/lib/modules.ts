@@ -52,10 +52,6 @@ export const MODULES: Record<ModuleKind, ModuleDef> = {
   },
 }
 
-export const LIFETIME = {
-  name: 'Lifetime Access', price: '$17',
-  checkoutUrl: 'https://www.digistore24.com/product/PLACEHOLDER-LIFETIME',
-}
 /** Money-back window shown in the app. Must match the guarantee set on the Digistore24 products. */
 export const REFUND_DAYS = 60
 export const DIGISTORE_BUYERS_URL = 'https://www.digistore24.com/en/buyers'
@@ -65,4 +61,4 @@ export const BUNDLE_CHECKOUT_URL = 'https://www.digistore24.com/product/PLACEHOL
 
 /** Access included with the front-end product, in days, counted from first use. */
 export const ACCESS_DAYS = 365
-export const KIND_UNLOCKS: Record<KeyKind, ModuleKind[]> = { all: ['debts', 'goals', 'reports'], debts: ['debts'], goals: ['goals'], reports: ['reports'], lifetime: [] }
+export const KIND_UNLOCKS: Record<KeyKind, ModuleKind[]> = { all: ['debts', 'goals', 'reports'], debts: ['debts'], goals: ['goals'], reports: ['reports'] }

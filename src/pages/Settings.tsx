@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '@heroicons/react/16/solid'
 import { isBuiltIn, useStore } from '../store'
 import { useUI } from '../ui-state'
 import { useAccount } from '../account'
@@ -9,8 +9,8 @@ import type { Theme } from '../types'
 import { Button, Card, CardHeader, CategoryBadge, CategoryIcon, Chip, Dialog, Divider, Empty, Field, IconButton, Input, PageHeader, Segmented, Select, SettingRow, TableRow, cx } from '../components/ui'
 import CodeInput from '../components/CodeInput'
 import { MODULE_ICON } from '../components/Layout'
-import { ACCESS_DAYS, LIFETIME, MODULES, KIND_UNLOCKS, REFUND_DAYS } from '../lib/modules'
-import { accessUntil, daysLeft, hasModule, isLifetime, isReadOnly } from '../lib/access'
+import { ACCESS_DAYS, MODULES, KIND_UNLOCKS, REFUND_DAYS } from '../lib/modules'
+import { accessUntil, daysLeft, hasModule, isReadOnly } from '../lib/access'
 import { OTHER } from '../lib/calc'
 import { formatKey, parseKey, type KeyKind } from '../lib/license'
 import RefundContent from '../components/RefundContent'
@@ -20,7 +20,7 @@ const COLORS = ['#3DBE7A', '#F0A33A', '#4F8EF7', '#A77BF3', '#E4B44A', '#E85D5D'
 const ICONS = ['ShoppingCart', 'Utensils', 'Car', 'Home', 'Zap', 'HeartPulse', 'ShoppingBag', 'Clapperboard', 'Repeat', 'Sparkles', 'GraduationCap', 'Circle',
   'Coffee', 'Plane', 'Gift', 'Dumbbell', 'Gamepad2', 'Baby', 'PawPrint', 'Smartphone', 'Wrench', 'Shirt', 'Music', 'Briefcase']
 const THEME_OPTIONS: { value: Theme; label: string }[] = [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]
-const UNLOCKS: Record<KeyKind, string> = Object.fromEntries((Object.keys(KIND_UNLOCKS) as KeyKind[]).map(k => [k, k === 'lifetime' ? 'Lifetime access' : KIND_UNLOCKS[k].map(m => MODULES[m].name).join(', ')])) as Record<KeyKind, string>
+const UNLOCKS: Record<KeyKind, string> = Object.fromEntries((Object.keys(KIND_UNLOCKS) as KeyKind[]).map(k => [k, KIND_UNLOCKS[k].map(m => MODULES[m].name).join(', ')])) as Record<KeyKind, string>
 // The shared controls are 36px high; phones need 44px targets.
 // A button in a SettingRow: right-aligned on desktop, full width on phones.
 const ROW_BTN = 'max-sm:w-full sm:flex sm:w-fit sm:ml-auto'
@@ -268,11 +268,10 @@ function Billing() {
   const settings = useStore(s => s.settings)
   const email = useAccount(s => s.session?.user.email)
   const [pwOpen, setPwOpen] = useState(false)
-  const life = isLifetime(settings)
   const ended = isReadOnly(settings)
   const until = accessUntil(settings)
   const untilText = until ? new Date(until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
-  const accessText = life ? 'Lifetime access. No renewals.' : !until ? `Included access lasts ${ACCESS_DAYS} days from first use.`
+  const accessText = !until ? `Included access lasts ${ACCESS_DAYS} days from first use.`
     : ended ? `Included access ended ${untilText}. You can view and export; adding is paused.` : `Included access ends ${untilText} (${daysLeft(settings)} days).`
   return (
     <div>
@@ -290,11 +289,10 @@ function Billing() {
       <Card className="p-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Golden Tool</span>
-          <Chip tone={life ? 'lifetime' : ended ? 'bad' : 'outline'}>{life ? 'Lifetime Access' : ended ? 'Ended' : 'Active'}</Chip>
-          <span className="ml-auto text-sm text-muted-foreground">{life ? 'Lifetime' : `${ACCESS_DAYS} days included`}</span>
+          <Chip tone={ended ? 'bad' : 'outline'}>{ended ? 'Ended' : 'Active'}</Chip>
+          <span className="ml-auto text-sm text-muted-foreground">{`${ACCESS_DAYS} days included`}</span>
         </div>
         <p className="text-sm text-muted-foreground mt-2">{accessText}</p>
-        {!life && <Button variant="primary" className="mt-4 max-sm:w-full" onClick={() => window.open(LIFETIME.checkoutUrl, '_blank', 'noopener')}><ArrowTopRightOnSquareIcon /><span>Get lifetime access</span></Button>}
       </Card>
 
       <Card className="mt-6">

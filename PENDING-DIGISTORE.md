@@ -13,15 +13,15 @@ It is NOT live yet: JWT verification is still on and no secrets are set. Nothing
    - `DIGISTORE_PRODUCT_MAP` = JSON of Digistore24 product id → offer, e.g.
      (see mapping below; the front-end product is not in the map)
      Mapping: Golden Freedom → `debts`, Golden Goals → `goals`, Golden Vision → `reports`,
-     Lifetime Access (order bump) → `lifetime`, Bundle/downsell (all add-ons) → `all`.
+     Bundle/downsell (all add-ons) → `all`.
      The front-end product (Golden Tool itself) is NOT in the map: it needs no entitlement.
-     Test map used in the plan: `{"1001":"debts","1002":"goals","1003":"reports","1004":"lifetime","1005":"all"}`
+     Test map used in the plan: `{"1001":"debts","1002":"goals","1003":"reports","1005":"all"}`
 
 ## Owner steps in Digistore24
 3. Settings → Integrations → IPN → new connection, type "Generic", URL above, SHA512 passphrase = the same value.
    One connection for all products is fine.
 4. Thank-you pages: tell the buyer to sign in at the app with the same email used at checkout.
-5. Replace the placeholder checkout links in `src/lib/modules.ts` (debts, goals, reports, lifetime, bundle) with the real order-form URLs.
+5. Replace the placeholder checkout links in `src/lib/modules.ts` (debts, goals, reports, bundle) with the real order-form URLs.
 
 ## Claude's test plan (run after 1–3)
 From the project folder:

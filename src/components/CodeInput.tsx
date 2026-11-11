@@ -5,7 +5,7 @@ import { formatKey, type KeyKind } from '../lib/license'
 import { MODULES } from '../lib/modules'
 import { Button, Input } from './ui'
 
-const LABEL: Record<KeyKind, string> = { all: 'Everything unlocked', debts: `${MODULES.debts.name} unlocked`, goals: `${MODULES.goals.name} unlocked`, reports: `${MODULES.reports.name} unlocked`, lifetime: 'Lifetime access activated' }
+const LABEL: Record<KeyKind, string> = { all: 'Everything unlocked', debts: `${MODULES.debts.name} unlocked`, goals: `${MODULES.goals.name} unlocked`, reports: `${MODULES.reports.name} unlocked` }
 
 /** Activation code field and Activate button. Accepts any code kind and says what it unlocked. */
 export default function CodeInput({ className, hint }: { className?: string; hint?: string }) {

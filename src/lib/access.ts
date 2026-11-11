@@ -6,7 +6,8 @@ import { useAccount } from '../account'
 /** Everything this person is entitled to: codes entered locally + purchases recorded for the signed-in email. */
 export function kindsOf(settings: Settings): KeyKind[] {
   const fromCodes = (settings.keys ?? []).map(parseKey).filter((k): k is KeyKind => k !== null)
-  const fromPurchases = useAccount.getState().entitlements.filter(e => e.status === 'active').map(e => e.product)
+  // A purchase of a kind this version does not know (an offer since withdrawn) unlocks nothing.
+  const fromPurchases = useAccount.getState().entitlements.filter(e => e.status === 'active' && e.product in KIND_UNLOCKS).map(e => e.product)
   return [...new Set([...fromCodes, ...fromPurchases])]
 }
 export function hasModule(settings: Settings, m: ModuleKind): boolean {
@@ -15,12 +16,9 @@ export function hasModule(settings: Settings, m: ModuleKind): boolean {
 export function hasAllModules(settings: Settings): boolean {
   return (['debts', 'goals', 'reports'] as ModuleKind[]).every(m => hasModule(settings, m))
 }
-export function isLifetime(settings: Settings): boolean {
-  return kindsOf(settings).includes('lifetime')
-}
-/** Timestamp when included access ends, or null for lifetime / not started. */
+/** Timestamp when included access ends, or null when it has not started. */
 export function accessUntil(settings: Settings): number | null {
-  if (isLifetime(settings) || !settings.firstOpenedAt) return null
+  if (!settings.firstOpenedAt) return null
   return settings.firstOpenedAt + ACCESS_DAYS * 86400000
 }
 export function daysLeft(settings: Settings, now = Date.now()): number | null {

@@ -4,9 +4,9 @@
 const SECRET = (import.meta.env?.VITE_LICENSE_SECRET as string | undefined) ?? 'golden-tool-2026'
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
-export type KeyKind = 'all' | 'debts' | 'goals' | 'reports' | 'lifetime'
-export const PREFIXES: Record<string, KeyKind> = { GOLD: 'all', DEBT: 'debts', GOAL: 'goals', RPRT: 'reports', LIFE: 'lifetime' }
-export const PREFIX_OF: Record<KeyKind, string> = { all: 'GOLD', debts: 'DEBT', goals: 'GOAL', reports: 'RPRT', lifetime: 'LIFE' }
+export type KeyKind = 'all' | 'debts' | 'goals' | 'reports'
+export const PREFIXES: Record<string, KeyKind> = { GOLD: 'all', DEBT: 'debts', GOAL: 'goals', RPRT: 'reports' }
+export const PREFIX_OF: Record<KeyKind, string> = { all: 'GOLD', debts: 'DEBT', goals: 'GOAL', reports: 'RPRT' }
 
 function hash(s: string): number {
   let h = 2166136261

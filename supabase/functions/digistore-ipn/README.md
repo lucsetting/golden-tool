@@ -17,10 +17,10 @@ npx supabase login
 npx supabase link --project-ref YOUR-PROJECT-REF
 npx supabase secrets set \
   DIGISTORE_IPN_PASSPHRASE='the-passphrase-you-set-in-digistore24' \
-  DIGISTORE_PRODUCT_MAP='{"12345":"all","12346":"debts","12347":"goals","12348":"reports","12349":"lifetime"}'
+  DIGISTORE_PRODUCT_MAP='{"12345":"all","12346":"debts","12347":"goals","12348":"reports"}'
 ```
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically. Product IDs are the numbers in Digistore24 (Products -> edit product). Values: `all|debts|goals|reports|lifetime`.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically. Product IDs are the numbers in Digistore24 (Products -> edit product). Values: `all|debts|goals|reports`.
 
 Testing without a passphrase: leave `DIGISTORE_IPN_PASSPHRASE` empty and set `ALLOW_UNSIGNED_IPN=true`. Remove it before launch.
 

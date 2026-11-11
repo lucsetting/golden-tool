@@ -9,7 +9,7 @@ export default function RefundContent({ narrow }: { narrow?: boolean }) {
   const rows: [string, string][] = [
     ['Guarantee', `${REFUND_DAYS} days from the purchase date.`],
     ['Handled by', 'Digistore24, the payment provider. Golden Tool never sees your card.'],
-    ['Covers', 'Golden Tool, Lifetime Access and each add-on, on its own order.'],
+    ['Covers', 'Golden Tool and each add-on, on its own order.'],
     ['Timing', 'Confirmed by email. Refunded to the original payment method within 10 business days.'],
   ]
   const steps = [

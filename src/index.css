@@ -3,8 +3,8 @@
 
 /* Golden Tool design system. Modeled on Mochi's light theme (use.themochi.app, measured at 1440x900):
    black and grey surfaces, hairline borders, 14/20 text at weight 450, 150ms motion.
-   Colour belongs to categories, charts and warnings. Gold is reserved for three marks only:
-   the logo, the Lifetime Access badge and the streak mark. Never on a button, ring, bar or chart. */
+   Colour belongs to categories, charts and warnings. Gold is reserved for two marks only:
+   the logo and the streak mark. Never on a button, ring, bar or chart. */
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-medium: 450;

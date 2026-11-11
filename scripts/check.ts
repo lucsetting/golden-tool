@@ -9,7 +9,7 @@ import { anomalies, averageIncome, budgetReport, carriedInto, categoryTrends, da
 import { categorise, detectColumns, guessDayFirst, guessPositiveOut, parseCSV, parseDate, rowKey, toRows } from '../src/lib/statement'
 
 // license
-for (const kind of ['all', 'debts', 'goals', 'reports', 'lifetime'] as const) {
+for (const kind of ['all', 'debts', 'goals', 'reports'] as const) {
   const k = generateKey(kind)
   assert.equal(parseKey(k), kind, `generated ${kind} key must parse`)
   assert.equal(parseKey(k.toLowerCase().replace(/-/g, ' ')), kind, 'lowercase/unformatted key must parse')
@@ -343,8 +343,8 @@ assert.equal(budgetState(100.01, 100), 'over'); assert.equal(budgetState(50), 'n
   assert.deepEqual([useStore.getState().expenses.length, useStore.getState().incomes.length, useStore.getState().debts.length, Object.keys(useStore.getState().rules).length], [0, 0, 0, 0])
   useStore.getState().updateSettings({ theme: 'light' }); assert.equal(useStore.getState().settings.theme, 'light')
   useStore.getState().updateSettings({ monthlyLimit: 9 }); assert.equal(useStore.getState().settings.monthlyLimit, 0, 'the monthly limit is data too')
-  assert.ok(useStore.getState().activateKey(generateKey('lifetime')), 'a code can still be entered'); assert.equal(useStore.getState().settings.keys.length, 2)
-  useStore.getState().addExpense({ amount: 1, categoryId: 'other', name: 'x', date: '2026-01-01' }); assert.equal(useStore.getState().expenses.length, 1, 'and it lifts the block')
+  assert.ok(useStore.getState().activateKey(generateKey('debts')), 'a code can still be entered'); assert.equal(useStore.getState().settings.keys.length, 2)
+  useStore.getState().addExpense({ amount: 1, categoryId: 'other', name: 'x', date: '2026-01-01' }); assert.equal(useStore.getState().expenses.length, 0, 'and no code lifts the block')
   loadState({ expenses: [], settings: { ...useStore.getState().settings, keys: ['GOLDABCD1234'] } })
   loadState(JSON.parse(json)); assert.deepEqual(pickData(useStore.getState()), before, 'export then load gives back every record')
   const { useUI } = await import('../src/ui-state')

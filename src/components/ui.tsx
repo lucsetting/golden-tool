@@ -228,13 +228,11 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
     </div>
   )
 }
-/** Chip: 12px label, radius 6. `outline` is the neutral bordered state badge.
- *  `lifetime` is gold and belongs to the Lifetime Access badge only. */
-export function Chip({ children, tone = 'muted', className }: { children: React.ReactNode; tone?: 'muted' | 'outline' | 'lifetime' | 'good' | 'bad' | 'warn'; className?: string }) {
+/** Chip: 12px label, radius 6. `outline` is the neutral bordered state badge. */
+export function Chip({ children, tone = 'muted', className }: { children: React.ReactNode; tone?: 'muted' | 'outline' | 'good' | 'bad' | 'warn'; className?: string }) {
   const t = {
     muted: 'bg-muted text-muted-foreground',
     outline: 'text-foreground shadow-[inset_0_0_0_1px_var(--border)]',
-    lifetime: 'bg-gold-soft text-gold-ink shadow-[inset_0_0_0_1px_var(--gold)]',
     good: 'bg-success-soft text-success',
     bad: 'bg-destructive-soft text-destructive',
     warn: 'bg-warn-soft text-warn',

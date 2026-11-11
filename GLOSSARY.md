@@ -81,9 +81,6 @@ _Avoid_: Module, upsell, Pro, plan
 **Included access**:
 The 365 days of full use that come with the main product; after it the app is read-only.
 
-**Lifetime Access**:
-The purchase that removes the end of included access.
-
 ### Golden Freedom (debts)
 
 **Debt**:

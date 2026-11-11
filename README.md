@@ -32,7 +32,6 @@ npx tsx scripts/check.ts   # self-check for money math and license codes
 | Offer | Code prefix | What it does in the app |
 |---|---|---|
 | Front-end: Golden Tool | none | Full tracking. Included access: 365 days from first use, then read-only (view + export only). |
-| Order bump: Lifetime Access | `LIFE` | Removes the 365-day limit. |
 | Upsell 1: Golden Freedom | `DEBT` | Unlocks the Debts section (planner + schedule). |
 | Upsell 2: Golden Goals | `GOAL` | Unlocks the Goals section (goals + emergency fund). |
 | Upsell 3: Golden Vision | `RPRT` | Unlocks the Reports section (budgets + yearly + export). |
@@ -45,7 +44,7 @@ Locked add-ons are visible in the left rail with a gold dot. Their pages are tea
 Generate codes:
 
 ```bash
-node scripts/gen-keys.mjs debts 100     # all | debts | goals | reports | lifetime
+node scripts/gen-keys.mjs debts 100     # all | debts | goals | reports
 ```
 
 Before launch: change `SECRET` in **both** `src/lib/license.ts` and `scripts/gen-keys.mjs` to the same new value, rebuild, and replace the placeholder checkout links in `src/lib/modules.ts`.

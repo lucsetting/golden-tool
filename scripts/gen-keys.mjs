@@ -1,10 +1,10 @@
 // Usage: node scripts/gen-keys.mjs <kind> <count>
-//   kind: all | debts | goals | reports | lifetime   (GOLD / DEBT / GOAL / RPRT / LIFE)
+//   kind: all | debts | goals | reports   (GOLD / DEBT / GOAL / RPRT)
 // Prints activation codes for the Digistore24 thank-you page of that product.
 // Mirrors src/lib/license.ts exactly. Change SECRET in both files together.
 const SECRET = process.env.LICENSE_SECRET ?? 'golden-tool-2026' // must equal VITE_LICENSE_SECRET used in the build
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const PREFIX = { all: 'GOLD', debts: 'DEBT', goals: 'GOAL', reports: 'RPRT', lifetime: 'LIFE' }
+const PREFIX = { all: 'GOLD', debts: 'DEBT', goals: 'GOAL', reports: 'RPRT' }
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 } return h }
 function checksum(s) { let h = hash(s.toUpperCase() + SECRET); let out = ''; for (let i = 0; i < 4; i++) { out += ALPHA[h % ALPHA.length]; h = Math.floor(h / ALPHA.length) } return out }
 const kind = process.argv[2] ?? 'all'

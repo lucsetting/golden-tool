@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowsRightLeftIcon, AdjustmentsHorizontalIcon, FunnelIcon, CalculatorIcon, CheckCircleIcon, QueueListIcon, TrophyIcon, ArrowTrendingUpIcon, ScaleIcon, ChartBarSquareIcon } from '@heroicons/react/16/solid'
+import { Squares2X2Icon, Cog6ToothIcon, HomeIcon, ListBulletIcon, ChartBarIcon, MoonIcon, SunIcon, PlusIcon, QuestionMarkCircleIcon, BookOpenIcon, CreditCardIcon, FlagIcon, ChartPieIcon, EllipsisHorizontalIcon, UserIcon, TagIcon, ArrowPathIcon, CircleStackIcon, CalendarDaysIcon, ShieldCheckIcon, TableCellsIcon, ArrowDownTrayIcon, LockClosedIcon, ArrowUturnLeftIcon, BanknotesIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowsRightLeftIcon, AdjustmentsHorizontalIcon, FunnelIcon, CalculatorIcon, CheckCircleIcon, QueueListIcon, TrophyIcon, ArrowTrendingUpIcon, ScaleIcon, ChartBarSquareIcon } from '@heroicons/react/16/solid'
 import { useStore } from '../store'
 import { SECTION_TABS, sectionOf, useUI, type Section, type Tab } from '../ui-state'
 import { expensesForMonth, total } from '../lib/calc'
 import { currentMonthKey, fmt } from '../lib/money'
-import { LIFETIME, MODULES, type ModuleKind } from '../lib/modules'
-import { daysLeft, hasModule, isLifetime, isReadOnly } from '../lib/access'
+import { MODULES, type ModuleKind } from '../lib/modules'
+import { daysLeft, hasModule, isReadOnly } from '../lib/access'
 import { useAccount } from '../account'
 import { hasAccounts } from '../lib/supabase'
 import { Chip, Dialog, Menu, MenuItem, ProgressBar, Toaster, cx } from './ui'
@@ -49,7 +49,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const sectionLocked = isAddon && !hasModule(settings, section)
   const left = daysLeft(settings)
   const readOnly = isReadOnly(settings)
-  const lifetime = isLifetime(settings)
   const isSettings = section === 'settings'
 
   useEffect(() => {
@@ -88,7 +87,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className="hidden lg:flex w-[228px] shrink-0 flex-col px-3 pt-[22px] pb-3">
         <div className="h-[22px] px-2 flex items-center gap-2 min-w-0">
           <span className="text-sm font-medium text-foreground truncate">{SECTION_TITLE[section]}</span>
-          {section === 'dashboard' && lifetime && <Chip tone="lifetime">Lifetime Access</Chip>}
           {isAddon && <Chip tone={sectionLocked ? 'muted' : 'outline'} className={sectionLocked ? 'bg-muted-2/60' : undefined}>{sectionLocked ? 'Locked' : 'Active'}</Chip>}
         </div>
         <nav aria-label={SECTION_TITLE[section]} className="mt-6 flex flex-col gap-1">
@@ -147,10 +145,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             </Menu>
           </div>
           {/* Access strip */}
-          {!lifetime && left !== null && (readOnly || left <= 30) && (
-            <div className={cx('mx-4 sm:mx-6 mb-2 px-3 min-h-10 py-2 rounded-lg flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm', readOnly ? 'bg-destructive-soft text-destructive' : 'bg-warn-soft text-foreground')}>
+          {left !== null && (readOnly || left <= 30) && (
+            <div className={cx('mx-4 sm:mx-6 mb-2 px-3 min-h-10 py-2 rounded-lg flex items-center text-sm', readOnly ? 'bg-destructive-soft text-destructive' : 'bg-warn-soft text-foreground')}>
               <span>{readOnly ? 'Included access ended. Viewing and export still work.' : `Included access ends in ${left} day${left === 1 ? '' : 's'}.`}</span>
-              <a href={LIFETIME.checkoutUrl} target="_blank" rel="noreferrer" className="relative before:absolute before:-inset-3 shrink-0 inline-flex items-center gap-1 underline underline-offset-2">Get lifetime access<ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /></a>
             </div>
           )}
           <div className={cx('mx-auto px-4 sm:px-6 pt-2 lg:pt-3 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-12', isSettings ? 'max-w-[544px] lg:pt-8' : 'max-w-[1280px]')}>
